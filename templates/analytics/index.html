@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}Analytics — AI Smart Classroom{% endblock %}
+{% block page_title %}Analytics & Insights{% endblock %}
+{% block page_subtitle %}7-day engagement, attention, and cognitive load trends{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px;" class="grid-2">
+  <!-- Attention Trend -->
+  <div class="card">
+    <div class="section-header">
+      <div>
+        <div class="section-title">📈 Attention Trend</div>
+        <div class="section-sub">Last 7 days average</div>
+      </div>
+    </div>
+    <canvas id="attentionTrendChart" height="200"></canvas>
+  </div>
+  <!-- Cognitive Load Trend -->
+  <div class="card">
+    <div class="section-header">
+      <div>
+        <div class="section-title">🧠 Cognitive Load Trend</div>
+        <div class="section-sub">Last 7 days average</div>
+      </div>
+    </div>
+    <canvas id="cognitiveTrendChart" height="200"></canvas>
+  </div>
+</div>
+
+<!-- Engagement Score -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="section-header">
+    <div>
+      <div class="section-title">⚡ Engagement Score</div>
+      <div class="section-sub">Combined attention × cognitive balance — last 7 days</div>
+    </div>
+  </div>
+  <canvas id="engagementChart" height="120"></canvas>
+</div>
+
+<!-- Student Difficulty Comparison -->
+<div class="card">
+  <div class="section-header">
+    <div>
+      <div class="section-title">🎓 Subject Difficulty by Student</div>
+      <div class="section-sub">Cognitive load per student — higher = more mental effort</div>
+    </div>
+  </div>
+  <canvas id="difficultyChart" height="200"></canvas>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  fetch('/api/analytics/data')
+    .then(r => r.json())
+    .then(data => {
+      const chartDefaults = {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } }, min: 0, max: 100 }
+        }
+      };
+
+      // Attention Trend
+      new Chart(document.getElementById('attentionTrendChart'), {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            data: data.attention,
+            borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.1)',
+            fill: true, tension: 0.4, pointBackgroundColor: '#06b6d4', pointRadius: 4
+          }]
+        },
+        options: chartDefaults
+      });
+
+      // Cognitive Load Trend
+      new Chart(document.getElementById('cognitiveTrendChart'), {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            data: data.cognitive,
+            borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)',
+            fill: true, tension: 0.4, pointBackgroundColor: '#8b5cf6', pointRadius: 4
+          }]
+        },
+        options: chartDefaults
+      });
+
+      // Engagement Score
+      new Chart(document.getElementById('engagementChart'), {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            data: data.engagement,
+            backgroundColor: data.engagement.map(v =>
+              v >= 70 ? 'rgba(16,185,129,0.7)' : v >= 50 ? 'rgba(245,158,11,0.7)' : 'rgba(239,68,68,0.7)'
+            ),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          ...chartDefaults,
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // Difficulty Bar
+      const names = Object.keys(data.subject_difficulty);
+      const vals  = Object.values(data.subject_difficulty);
+      new Chart(document.getElementById('difficultyChart'), {
+        type: 'bar',
+        data: {
+          labels: names,
+          datasets: [{
+            data: vals,
+            backgroundColor: vals.map(v =>
+              v >= 70 ? 'rgba(239,68,68,0.7)' : v >= 45 ? 'rgba(245,158,11,0.7)' : 'rgba(100,116,139,0.5)'
+            ),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } }, min: 0, max: 100 }
+          }
+        }
+      });
+    });
+});
+</script>
+{% endblock %}

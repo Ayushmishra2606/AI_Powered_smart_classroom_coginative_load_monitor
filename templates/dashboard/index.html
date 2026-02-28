@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — AI Smart Classroom{% endblock %}
+{% block page_title %}Teacher Dashboard{% endblock %}
+{% block page_subtitle %}Real-time class attention & cognitive load overview{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="stats-grid" id="stats-grid">
+  <div class="stat-card" style="--card-accent: linear-gradient(90deg,#06b6d4,#3b82f6)">
+    <div class="stat-icon">📊</div>
+    <div class="stat-value" id="stat-avg-attention">--</div>
+    <div class="stat-label">Class Attention Score</div>
+    <div class="stat-change" id="stat-att-change">Waiting for data...</div>
+  </div>
+  <div class="stat-card" style="--card-accent: linear-gradient(90deg,#8b5cf6,#6366f1)">
+    <div class="stat-icon">🧠</div>
+    <div class="stat-value" id="stat-cognitive">--</div>
+    <div class="stat-label">Avg Cognitive Load</div>
+    <div class="stat-change" id="stat-cog-change">Waiting for data...</div>
+  </div>
+  <div class="stat-card" style="--card-accent: linear-gradient(90deg,#10b981,#06b6d4)">
+    <div class="stat-icon">👥</div>
+    <div class="stat-value" id="stat-attentive">0</div>
+    <div class="stat-label">Attentive Students</div>
+    <div class="stat-change up" id="stat-total">of {{ students|length }} total</div>
+  </div>
+  <div class="stat-card" style="--card-accent: linear-gradient(90deg,#f59e0b,#ef4444)">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-value" id="stat-distracted">0</div>
+    <div class="stat-label">Need Attention</div>
+    <div class="stat-change down" id="stat-dist-label">distracted / sleeping</div>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px;">
+  <!-- Cognitive Load Distribution -->
+  <div class="card">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Cognitive Load Distribution</div>
+        <div class="section-sub">Current class snapshot</div>
+      </div>
+    </div>
+    <div style="position:relative;height:240px;display:flex;align-items:center;justify-content:center;">
+      <canvas id="cognitiveChart"></canvas>
+    </div>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:12px;">
+      <span style="color:#94a3b8;">🔵 Low</span>
+      <span style="color:#10b981;">🟢 Optimal</span>
+      <span style="color:#ef4444;">🔴 High</span>
+    </div>
+  </div>
+
+  <!-- Attention States -->
+  <div class="card">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Attention States</div>
+        <div class="section-sub">Live breakdown</div>
+      </div>
+    </div>
+    <div style="position:relative;height:240px;display:flex;align-items:center;justify-content:center;">
+      <canvas id="attentionChart"></canvas>
+    </div>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:12px;flex-wrap:wrap;">
+      <span style="color:#10b981;">🟢 Attentive</span>
+      <span style="color:#f59e0b;">🟡 Distracted</span>
+      <span style="color:#8b5cf6;">🟣 Sleeping</span>
+      <span style="color:#ef4444;">🔴 Absent</span>
+    </div>
+  </div>
+</div>
+
+<!-- Student Table -->
+<div class="card">
+  <div class="section-header">
+    <div>
+      <div class="section-title">👥 Student Overview</div>
+      <div class="section-sub">Live status — updates every 3s</div>
+    </div>
+    <a href="{{ url_for('students.index') }}" class="btn btn-ghost btn-sm">Manage →</a>
+  </div>
+  {% if students %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Roll No</th>
+          <th>Attention</th>
+          <th>Cognitive Load</th>
+          <th>State</th>
+          <th>Emotion</th>
+          <th>Head Pose</th>
+        </tr>
+      </thead>
+      <tbody id="student-table-body">
+        {% for s in students %}
+        <tr id="row-{{ s.id }}">
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="student-avatar" style="background:{{ s.avatar_color }}">{{ s.name[0] }}</div>
+              <span style="font-weight:500;">{{ s.name }}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-secondary);">{{ s.roll_no }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="progress-bar" style="width:80px;">
+                <div class="progress-fill" id="att-bar-{{ s.id }}" style="width:0%;background:linear-gradient(90deg,#06b6d4,#3b82f6);"></div>
+              </div>
+              <span id="att-val-{{ s.id }}" style="font-size:12px;font-weight:600;">--</span>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="progress-bar" style="width:80px;">
+                <div class="progress-fill" id="cog-bar-{{ s.id }}" style="width:0%;background:linear-gradient(90deg,#8b5cf6,#6366f1);"></div>
+              </div>
+              <span id="cog-val-{{ s.id }}" style="font-size:12px;font-weight:600;">--</span>
+            </div>
+          </td>
+          <td><span class="badge" id="att-state-{{ s.id }}">--</span></td>
+          <td><span id="emotion-{{ s.id }}" style="font-size:13px;">--</span></td>
+          <td><span id="pose-{{ s.id }}" style="font-size:13px;color:var(--text-secondary);">--</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">👥</div>
+    <p>No students added yet.</p>
+    <a href="{{ url_for('students.index') }}" class="btn btn-primary" style="margin-top:16px;">Add Students</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

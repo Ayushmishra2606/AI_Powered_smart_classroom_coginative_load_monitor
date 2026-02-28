@@ -1,0 +1,82 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# ========================
+# Virtual Environments
+# ========================
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# ========================
+# Flask / App specific
+# ========================
+# SQLite database (auto-created on first run — do NOT commit)
+classroom.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Secret / environment config
+.env
+*.env
+instance/
+
+# Flask session files
+flask_session/
+
+# ========================
+# AI / ML
+# ========================
+# Large trained model weights (keep .py files)
+*.h5
+*.pkl
+*.pt
+*.pth
+*.onnx
+*.tflite
+
+# ========================
+# IDE & Editor
+# ========================
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.code-workspace
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Logs & Temp
+# ========================
+*.log
+*.tmp
+*.bak
+logs/
+tmp/
+
+# ========================
+# Build / Dist
+# ========================
+dist/
+build/
+*.egg-info/
+.eggs/

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}AI Smart Classroom{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/main.css') }}"
+    />
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    <div class="layout">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <div class="logo-icon">🧠</div>
+          <div>
+            <span>Smart Classroom</span>
+            <small>AI Monitor System</small>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <div class="nav-section-label">Main</div>
+          <a
+            href="{{ url_for('dashboard.index') }}"
+            class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}"
+          >
+            <span class="nav-icon">📊</span> Dashboard
+          </a>
+          <a
+            href="{{ url_for('monitoring.live') }}"
+            class="nav-link {% if request.endpoint == 'monitoring.live' %}active{% endif %}"
+          >
+            <span class="nav-icon">👁️</span> Live Monitor
+            <span
+              class="live-indicator"
+              style="
+                margin-left: auto;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #10b981;
+                box-shadow: 0 0 6px #10b981;
+              "
+            ></span>
+          </a>
+          <a
+            href="{{ url_for('analytics.index') }}"
+            class="nav-link {% if request.endpoint == 'analytics.index' %}active{% endif %}"
+          >
+            <span class="nav-icon">📈</span> Analytics
+          </a>
+
+          <div class="nav-section-label" style="margin-top: 12px">
+            Management
+          </div>
+          <a
+            href="{{ url_for('students.index') }}"
+            class="nav-link {% if request.endpoint == 'students.index' %}active{% endif %}"
+          >
+            <span class="nav-icon">👥</span> Students
+          </a>
+
+          <div class="nav-section-label" style="margin-top: 12px">Info</div>
+          <a href="#" class="nav-link" onclick="openAlertDrawer()">
+            <span class="nav-icon">🔔</span> Alerts
+            <span class="nav-badge" id="sidebar-alert-count">0</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="user-card">
+            <div class="user-avatar">{{ current_user.name[0].upper() }}</div>
+            <div class="user-info">
+              <div class="user-name">{{ current_user.name }}</div>
+              <div class="user-role">Teacher</div>
+            </div>
+            <a
+              href="{{ url_for('auth.logout') }}"
+              class="logout-btn"
+              title="Logout"
+              >⏻</a
+            >
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Area -->
+      <div class="main-area">
+        <!-- Topbar -->
+        <header class="topbar">
+          <div class="topbar-title">
+            {% block page_title %}Dashboard{% endblock %}
+            <small
+              >{% block page_subtitle %}AI-Powered Smart Classroom{% endblock
+              %}</small
+            >
+          </div>
+          <div class="topbar-right">
+            <div class="live-badge">
+              <div class="status-dot"></div>
+              LIVE
+            </div>
+            <button
+              class="alert-btn"
+              onclick="openAlertDrawer()"
+              title="Alerts"
+            >
+              🔔 <span class="alert-count" id="topbar-alert-count">0</span>
+            </button>
+            <div
+              style="font-size: 13px; color: var(--text-secondary)"
+              id="clock"
+            ></div>
+          </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if
+        messages %}
+        <div style="padding: 12px 28px 0">
+          {% for category, msg in messages %}
+          <div class="flash-msg {{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+        {% endif %} {% endwith %}
+
+        <!-- Page Content -->
+        <main class="page-content fade-in">
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+
+    <!-- Alert Drawer -->
+    <div class="alert-drawer" id="alertDrawer">
+      <div class="alert-drawer-header">
+        <span style="font-weight: 700">🔔 Alerts</span>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <button class="btn btn-ghost btn-sm" onclick="markAllRead()">
+            Mark all read
+          </button>
+          <button
+            style="
+              background: none;
+              border: none;
+              color: var(--text-secondary);
+              font-size: 20px;
+              cursor: pointer;
+            "
+            onclick="closeAlertDrawer()"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      <div class="alert-list" id="alertList">
+        <div class="empty-state">
+          <div class="empty-icon">🎉</div>
+          <p>No alerts yet</p>
+        </div>
+      </div>
+    </div>
+    <div
+      style="
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 199;
+        display: none;
+      "
+      id="drawerOverlay"
+      onclick="closeAlertDrawer()"
+    ></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+    {% block scripts %}{% endblock %}
+    <script>
+      // Clock
+      function updateClock() {
+        const now = new Date();
+        document.getElementById("clock").textContent = now.toLocaleTimeString();
+      }
+      setInterval(updateClock, 1000);
+      updateClock();
+    </script>
+  </body>
+</html>
