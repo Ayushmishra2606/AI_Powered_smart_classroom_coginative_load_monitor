@@ -5,7 +5,7 @@ from datetime import datetime
 class MonitoringSession(db.Model):
     __tablename__ = 'monitoring_sessions'
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student_profiles.id'), nullable=False)
     attention_score = db.Column(db.Float, default=0.0)    # 0-100
     cognitive_load = db.Column(db.Float, default=0.0)     # 0-100
     attention_state = db.Column(db.String(20), default='attentive')  # attentive/distracted/sleeping/absent

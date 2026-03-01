@@ -18,6 +18,26 @@ env/
 ENV/
 
 # ========================
+ai/
+routes/
+static/
+templates/
+app.py
+config.py
+classroom.db
+
+
+# AI / ML
+# ========================
+# Large trained model weights (keep .py files)
+*.h5
+*.pkl
+*.pt
+*.pth
+*.onnx
+*.tflite
+
+# ========================
 # Flask / App specific
 # ========================
 # SQLite database (auto-created on first run — do NOT commit)
