@@ -1,287 +1,109 @@
-# 🧠 AI-Powered Smart Classroom
+# 🧠 AI-Powered Smart Classroom: Cognitive Load & Engagement Monitor
 
-## Cognitive Load & Attention Monitoring System
-
-An intelligent AI-based classroom monitoring system designed to help teachers understand student engagement, attention levels, and cognitive load in real-time. The platform provides a smart dashboard to track student focus, detect confusion, and improve teaching effectiveness through data-driven insights.
+A high-performance, real-time AI classroom monitoring system built with **Flask**, **OpenCV**, and **MediaPipe**. This platform enables teachers to monitor student engagement, track automated presence, and interact through bi-directional video and screen sharing.
 
 ---
 
-# 📌 Project Overview
+## 🚀 Key Features
 
-The **AI-Powered Smart Classroom** system uses computer vision and machine learning to analyze student behavior during lectures. It monitors attention levels, detects cognitive load, and presents insights through a teacher dashboard for better classroom management and personalized learning.
+### 👁️ Real-Time AI Monitoring
 
-This project aims to make education more adaptive, interactive, and efficient.
+- **Attention Tracking:** Analyzes head pose, gaze stability, and blink rates to calculate live attention scores (0-100%).
+- **Cognitive Load Detection:** Monitors facial expressions and blink frequency to estimate mental effort and confusion.
+- **Hybrid AI Engine:** Uses **MediaPipe FaceMesh** for high-precision 3D tracking with a robust fallback to **OpenCV Haar Cascades** for wide compatibility.
 
----
+### 🎥 Live Bi-Directional Interaction
 
-# 🎯 Objectives
+- **Teacher Broadcast:** Students see the teacher's live camera feed as the primary focal point.
+- **Dual-Feed Layout:** Students can see their own AI-processed "Self-View" alongside the teacher's lesson.
+- **Live Screen Sharing:** Teachers can share their desktop or specific windows directly with all students via a server-side MJPEG relay.
 
-* Monitor student attention in real time
-* Detect cognitive load and confusion levels
-* Provide a centralized dashboard for teachers
-* Track engagement and performance trends
-* Help teachers adjust teaching strategies instantly
+### 👤 Automated Presence & Signaling
 
----
+- **Face-Based Presence:** Automatically marks students as `✅ Present` or `⚠️ AWAY` by detecting their face in the camera frame.
+- **Focus Nudges:** Teachers can send instant visual alerts ("Nudges") to distracted students.
+- **Live Q&A Chat:** A real-time interaction panel for instant doubts and communication.
 
-# 🚀 Key Features
+### 📊 Classroom Analytics
 
-## 👁️ Attention Monitoring
-
-* Face detection and tracking
-* Eye gaze estimation
-* Head pose detection
-* Detects:
-
-  * Attentive
-  * Distracted
-  * Sleeping
-  * Absent
-
-## 🧠 Cognitive Load Detection
-
-* Emotion recognition
-* Blink rate analysis
-* Behavior pattern analysis
-* Response-time tracking
-
-States detected:
-
-* Low Load (Bored)
-* Optimal Load (Learning)
-* High Load (Confused/Overloaded)
-
-## 📊 Teacher Dashboard
-
-* Live class attention score
-* Student engagement overview
-* Cognitive load distribution
-* Individual student tracking
-
-## 🔔 Smart Alerts
-
-* Drop in attention levels
-* High confusion detected
-* Multiple students distracted
-
-## 📈 Student Analytics
-
-* Daily engagement report
-* Weekly focus trends
-* Participation tracking
-* Subject difficulty analysis
+- **Class Pulse:** A live, aggregate engagement index showing the collective focus level of the entire classroom.
+- **Live Dashboards:** Real-time per-student metrics for teachers and personal focus summaries for students.
 
 ---
 
-# 🏗️ System Architecture
+## 🛠️ Tech Stack
 
-### Input Layer
-
-* Classroom cameras / webcams
-* Student video feed
-
-### Processing Layer
-
-* Face Detection (OpenCV / MediaPipe)
-* Emotion Recognition
-* Attention Estimation Model
-
-### Backend
-
-* Node.js / Python
-* REST APIs
-* Database storage
-
-### Frontend
-
-* React.js dashboard
-* Real-time charts and insights
+- **Backend:** Flask (Python 3.x)
+- **Database:** SQLite with SQLAlchemy ORM
+- **AI/CV:** OpenCV, MediaPipe, SciPy
+- **Real-Time Data:** Server-Sent Events (SSE) for metrics, MJPEG for video/screen streaming
+- **Frontend:** HTML5, CSS3 (Glassmorphism), Vanilla JavaScript, Jinja2 Templates
 
 ---
 
-# 🛠️ Tech Stack
+## 📂 Project Structure
 
-## AI & Machine Learning
-
-* OpenCV
-* MediaPipe
-* TensorFlow / PyTorch
-* Face Recognition Models
-
-## Frontend
-
-* React.js
-* Chart.js / Recharts
-* Tailwind CSS
-
-## Backend
-
-* Node.js / Express
-* Python (for ML processing)
-
-## Database
-
-* MongoDB / Firebase
-
----
-
-# 📊 Dashboard Modules
-
-* Live attention score
-* Student activity table
-* Cognitive load heatmap
-* Engagement trend graph
-* Alerts & notifications
-
----
-
-# 💡 Use Cases
-
-* Schools
-* Colleges
-* Coaching Institutes
-* Online Learning Platforms
-* EdTech Companies
-
----
-
-# 🎓 Benefits
-
-## For Teachers
-
-* Identify distracted students instantly
-* Detect confusion without asking
-* Improve teaching strategies
-
-## For Students
-
-* Better learning focus
-* Personalized support
-* Increased engagement
-
-## For Institutions
-
-* Data-driven performance tracking
-* Improved learning outcomes
-
----
-
-# 📂 Project Structure
-
-```
-smart-classroom-ai/
-│
-├── frontend/            # React dashboard
-├── backend/             # Node.js APIs
-├── ai-models/           # ML models & scripts
-├── database/            # Schemas & configs
-├── assets/              # Images & icons
-├── docs/                # Documentation
-└── README.md
+```text
+mini-project/
+├── ai/                 # Core AI Logic
+│   ├── face_detector.py   # Landmark detection & heuristics
+│   ├── camera.py          # Singleton Camera Manager
+│   ├── analyzer.py        # Engagement & Class stats logic
+│   └── screen_manager.py  # Screen share relay manager
+├── models/             # SQLAlchemy Database Models
+├── routes/             # Flask Blueprints
+├── static/             # JS & CSS assets
+├── templates/          # Jinja2 HTML templates
+├── app.py              # Application Entry Point
+└── classroom.db        # SQLite Database
 ```
 
 ---
 
-# 🔧 Installation
+## 📦 Installation & Setup
 
-## 1️⃣ Clone Repository
+1. **Clone the Repository:**
 
-```
-git clone https://github.com/your-username/smart-classroom-ai.git
-cd smart-classroom-ai
-```
+   ```bash
+   git clone https://github.com/Ayushmishra2606/AI_Powered_smart_classroom_coginative_load_monitor.git
+   cd AI_Powered_smart_classroom_coginative_load_monitor
+   ```
 
-## 2️⃣ Install Dependencies
+2. **Set Up Virtual Environment:**
 
-### Backend
+   ```bash
+   python -m venv venv
+   source venv/bin/scripts/activate  # Windows: venv\Scripts\activate
+   ```
 
-```
-cd backend
-npm install
-```
+3. **Install Dependencies:**
 
-### Frontend
+   ```bash
+   pip install flask flask-sqlalchemy flask-login opencv-python mediapipe scipy
+   ```
 
-```
-cd frontend
-npm install
-```
+4. **Initialize Database:**
 
-### AI Models
+   ```bash
+   python migrate_db.py  # If available, or just run app.py
+   ```
 
-```
-pip install -r requirements.txt
-```
-
-## 3️⃣ Run Project
-
-### Start Backend
-
-```
-npm start
-```
-
-### Start Frontend
-
-```
-npm run dev
-```
-
-### Run AI Service
-
-```
-python app.py
-```
+5. **Run the Application:**
+   ```bash
+   python app.py
+   ```
+   Access at: `http://127.0.0.1:5000`
 
 ---
 
-# 🔮 Future Enhancements
+## 🤝 Contributing
 
-* Voice emotion detection
-* Auto attendance system
-* Parent dashboard
-* Personalized learning recommendations
-* AI-generated quizzes
+Contributions are welcome! Please fork the repo, create a feature branch, and submit a PR.
 
----
-
-# 📚 Research Scope
-
-This project can be extended into:
-
-* Final Year Project
-* Research Paper
-* EdTech Startup
-* AI in Education Study
-
----
-
-# 🤝 Contribution
-
-Contributions are welcome!
-
-Steps:
-
-1. Fork the repository
-2. Create a new branch
-3. Make changes
-4. Submit a pull request
-
----
-
-# 📜 License
+## 📜 License
 
 This project is licensed under the MIT License.
 
 ---
 
-# 👨‍💻 Author
-
-**Your Name**
-AI & Software Developer
-
----
-
-# ⭐ Support
-
-If you like this project, give it a star ⭐ on GitHub and share it!
+**Author:** [Rahul Rathore](https://github.com/rahulrathore579) & [Ayush Mishra](https://github.com/Ayushmishra2606)
