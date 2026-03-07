@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Students — AI Smart Classroom{% endblock %}
+{% block page_title %}Student Management{% endblock %}
+{% block page_subtitle %}View and manage enrolled students{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="section-header">
+    <div>
+      <div class="section-title">👥 Enrolled Students</div>
+      <div class="section-sub">{{ students|length }} student(s) registered</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('addModal').classList.add('open')">+ Add Student</button>
+  </div>
+
+  {% if students %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Enrollment No</th>
+          <th>Department</th>
+          <th>Semester</th>
+          <th>Email</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in students %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="student-avatar" style="background:{{ s.avatar_color }}">{{ s.user.name[0] if s.user else '?' }}</div>
+              <span style="font-weight:600;">{{ s.user.name if s.user else 'Unknown' }}</span>
+            </div>
+          </td>
+          <td style="color:var(--text-secondary);font-family:monospace;">{{ s.enrollment_no or '—' }}</td>
+          <td><span class="badge badge-info">{{ s.department.code if s.department else '—' }}</span></td>
+          <td style="color:var(--text-secondary);">Sem {{ s.semester }}</td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ s.user.email if s.user else '—' }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('students.delete_student', student_id=s.id) }}"
+                  onsubmit="return confirm('Remove {{ s.user.name if s.user else 'student' }}?')">
+              <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">👤</div>
+    <p>No students yet. Click <strong>Add Student</strong> to get started.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add Student Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">➕ Add New Student</span>
+      <button class="modal-close" onclick="document.getElementById('addModal').classList.remove('open')">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('students.add_student') }}">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input class="form-control" type="text" name="name" placeholder="e.g. Priya Sharma" required/>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input class="form-control" type="email" name="email" placeholder="student@university.edu" required/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label>Department</label>
+          <select class="form-control" name="department_id">
+            {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Semester</label>
+          <select class="form-control" name="semester">
+            {% for i in range(1,9) %}<option value="{{ i }}">Sem {{ i }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('addModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Student</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}My Analytics — AI Smart Classroom{% endblock %}
+{% block page_title %}Personal Analytics{% endblock %}
+{% block page_subtitle %}Your focus, attention and cognitive load history{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="margin-bottom:20px;">
+  <div class="card">
+    <div class="section-header"><div class="section-title">📈 Attention History</div></div>
+    <canvas id="attChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <div class="section-header"><div class="section-title">🧠 Cognitive Load History</div></div>
+    <canvas id="cogChart" height="200"></canvas>
+  </div>
+</div>
+<div class="card">
+  <div class="section-header"><div class="section-title">⚡ Session Performance</div><div class="section-sub">Recent classroom sessions</div></div>
+  <canvas id="sessionChart" height="120"></canvas>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const chartOpts = (color) => ({
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } }, min: 0, max: 100 }
+  }
+});
+
+fetch('/student/api/focus-history')
+  .then(r => r.json())
+  .then(d => {
+    if (!d.labels.length) return;
+    new Chart(document.getElementById('attChart'), {
+      type: 'line',
+      data: { labels: d.labels, datasets: [{ data: d.attention, borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.1)', fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#06b6d4' }] },
+      options: chartOpts('#06b6d4')
+    });
+    new Chart(document.getElementById('cogChart'), {
+      type: 'line',
+      data: { labels: d.labels, datasets: [{ data: d.cognitive, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#8b5cf6' }] },
+      options: chartOpts('#8b5cf6')
+    });
+    new Chart(document.getElementById('sessionChart'), {
+      type: 'bar',
+      data: {
+        labels: d.labels,
+        datasets: [
+          { label: 'Attention', data: d.attention, backgroundColor: 'rgba(6,182,212,0.7)', borderRadius: 4 },
+          { label: 'Cognitive', data: d.cognitive, backgroundColor: 'rgba(139,92,246,0.7)', borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 11 } }, min: 0, max: 100 }
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}

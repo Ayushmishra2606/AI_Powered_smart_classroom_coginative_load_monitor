@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}Attendance — AI Smart Classroom{% endblock %}
+{% block page_title %}My Attendance{% endblock %}
+{% block page_subtitle %}Track your class attendance record{% endblock %}
+
+{% block content %}
+<!-- Summary -->
+<div class="stats-grid" style="margin-bottom:20px;">
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#10b981,#06b6d4)">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value">{{ stats.pct }}%</div>
+    <div class="stat-label">Overall Attendance</div>
+    <div class="stat-change {{ 'up' if stats.pct >= 75 else 'down' }}">{{ 'Above minimum (75%)' if stats.pct >= 75 else 'Below 75% — at risk' }}</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#3b82f6,#6366f1)">
+    <div class="stat-icon">🗓️</div>
+    <div class="stat-value">{{ stats.total }}</div>
+    <div class="stat-label">Total Classes</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#10b981,#06b6d4)">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-value">{{ stats.present }}</div>
+    <div class="stat-label">Present</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#ef4444,#f59e0b)">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-value">{{ stats.total - stats.present }}</div>
+    <div class="stat-label">Absent</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-header">
+    <div class="section-title">📋 Attendance Record</div>
+    <span style="font-size:12px;color:var(--text-secondary);">{{ records|length }} entries</span>
+  </div>
+  {% if records %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr><th>Date & Time</th><th>Subject</th><th>Room</th><th>Status</th><th>Face Verified</th></tr></thead>
+      <tbody>
+      {% for a in records %}
+      <tr>
+        <td style="font-size:12px;color:var(--text-secondary);font-family:monospace;">{{ a.joined_at.strftime('%b %d, %Y %H:%M') }}</td>
+        <td>
+          {% if a.class_session and a.class_session.timetable_entry and a.class_session.timetable_entry.subject %}
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ a.class_session.timetable_entry.subject.color }};margin-right:6px;"></span>
+          {{ a.class_session.timetable_entry.subject.name }}
+          {% else %}—{% endif %}
+        </td>
+        <td style="font-family:monospace;font-size:12px;">
+          {% if a.class_session and a.class_session.timetable_entry and a.class_session.timetable_entry.room %}
+          {{ a.class_session.timetable_entry.room.room_no }}
+          {% else %}—{% endif %}
+        </td>
+        <td><span class="badge badge-{{ a.status }}">{{ a.status.title() }}</span></td>
+        <td>{% if a.face_verified %}<span style="color:var(--accent-green);">✅ Yes</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">📋</div><p>No attendance records yet. Join a classroom to start tracking.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

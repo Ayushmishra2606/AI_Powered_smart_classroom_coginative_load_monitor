@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — AI Smart Classroom</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon">🧠</div>
+      <h1>AI Smart Classroom</h1>
+      <p>University Cognitive Load Monitor</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for cat, msg in messages %}
+    <div class="flash-msg {{ cat }}">{{ msg }}</div>
+    {% endfor %}{% endif %}
+    {% endwith %}
+
+    <!-- Role Selector -->
+    <div class="role-pills" id="rolePills">
+      <button class="role-pill active" onclick="selectRole('student',this)">🎓 Student</button>
+      <button class="role-pill" onclick="selectRole('teacher',this)">👨‍🏫 Teacher</button>
+      <button class="role-pill" onclick="selectRole('admin',this)">🛡️ Admin</button>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+      <input type="hidden" name="role_hint" id="role_hint" value="student"/>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input class="form-control" type="email" name="email" placeholder="your@university.edu" required/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input class="form-control" type="password" name="password" placeholder="••••••••" required/>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;font-size:14px;margin-top:8px;">
+        Sign In →
+      </button>
+    </form>
+
+    <!-- Demo credentials helper -->
+    <div style="margin-top:20px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid var(--glass-border);border-radius:8px;font-size:12px;color:var(--text-secondary);">
+      <div style="font-weight:600;margin-bottom:6px;color:var(--text-primary);">🔑 Demo Credentials</div>
+      <div>🎓 Student: <code style="color:var(--accent-cyan);">student1@demo.com</code> / <code>pass123</code></div>
+      <div style="margin-top:3px;">👨‍🏫 Teacher: <code style="color:var(--accent-cyan);">teacher@demo.com</code> / <code>pass123</code></div>
+      <div style="margin-top:3px;">🛡️ Admin: <code style="color:var(--accent-cyan);">admin@demo.com</code> / <code>pass123</code></div>
+    </div>
+
+    <div class="auth-link">
+      New here? <a href="{{ url_for('auth.register') }}">Create account</a>
+    </div>
+  </div>
+</div>
+<style>
+.role-pills { display:flex; gap:8px; margin-bottom:20px; }
+.role-pill { flex:1; padding:8px 4px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--glass-border); background:var(--glass); color:var(--text-secondary); transition:all 0.2s; }
+.role-pill.active { background:linear-gradient(135deg,var(--accent-cyan),var(--accent-blue)); color:#fff; border-color:transparent; }
+</style>
+<script>
+function selectRole(role, el) {
+  document.querySelectorAll('.role-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('role_hint').value = role;
+}
+</script>
+</body>
+</html>

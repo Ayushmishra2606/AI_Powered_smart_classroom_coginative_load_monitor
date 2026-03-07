@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}AI Smart Classroom{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% set role_accent = {
+  'teacher': '--accent-blue',
+  'admin':   '--accent-yellow',
+  'student': '--accent-cyan'
+}[current_user.role] if current_user.is_authenticated else '--accent-cyan' %}
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" data-role="{{ current_user.role if current_user.is_authenticated else 'student' }}">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🧠</div>
+      <div>
+        <span>Smart Classroom</span>
+        <small>
+          {% if current_user.is_authenticated %}
+            {% if current_user.is_student() %}🎓 Student Portal
+            {% elif current_user.is_teacher() %}👨‍🏫 Teacher Portal
+            {% else %}🛡️ Admin Portal{% endif %}
+          {% endif %}
+        </small>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      {% if current_user.is_authenticated and current_user.is_student() %}
+      <div class="nav-section-label">Student</div>
+      <a href="{{ url_for('student.dashboard') }}" class="nav-link {% if request.endpoint == 'student.dashboard' %}active{% endif %}">
+        <span class="nav-icon">🏠</span> My Dashboard
+      </a>
+      <a href="{{ url_for('student.schedule') }}" class="nav-link {% if request.endpoint == 'student.schedule' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Schedule
+      </a>
+      <a href="{{ url_for('student.attendance') }}" class="nav-link {% if request.endpoint == 'student.attendance' %}active{% endif %}">
+        <span class="nav-icon">✅</span> Attendance
+      </a>
+      <a href="{{ url_for('student.analytics') }}" class="nav-link {% if request.endpoint == 'student.analytics' %}active{% endif %}">
+        <span class="nav-icon">📈</span> My Analytics
+      </a>
+
+      {% elif current_user.is_authenticated and current_user.is_teacher() %}
+      <div class="nav-section-label">Teacher</div>
+      <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a href="{{ url_for('monitoring.live') }}" class="nav-link {% if request.endpoint == 'monitoring.live' %}active{% endif %}">
+        <span class="nav-icon">👁️</span> Live Monitor
+      </a>
+      <a href="{{ url_for('analytics.index') }}" class="nav-link {% if request.endpoint == 'analytics.index' %}active{% endif %}">
+        <span class="nav-icon">📈</span> Analytics
+      </a>
+      <a href="{{ url_for('students.index') }}" class="nav-link {% if request.endpoint == 'students.index' %}active{% endif %}">
+        <span class="nav-icon">👥</span> Students
+      </a>
+
+      {% elif current_user.is_authenticated and current_user.is_admin() %}
+      <div class="nav-section-label">Admin</div>
+      <a href="{{ url_for('admin.index') }}" class="nav-link {% if request.endpoint == 'admin.index' %}active{% endif %}">
+        <span class="nav-icon">🛡️</span> Control Panel
+      </a>
+      <a href="{{ url_for('admin.users') }}" class="nav-link {% if request.endpoint == 'admin.users' %}active{% endif %}">
+        <span class="nav-icon">👥</span> Manage Users
+      </a>
+      <a href="{{ url_for('dashboard.index') }}" class="nav-link">
+        <span class="nav-icon">📊</span> Teacher View
+      </a>
+      {% endif %}
+
+      <div class="nav-section-label" style="margin-top:12px;">Alerts</div>
+      <a href="#" class="nav-link" onclick="openAlertDrawer()">
+        <span class="nav-icon">🔔</span> Notifications
+        <span class="nav-badge" id="sidebar-alert-count">0</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" style="background:{{ current_user.avatar_color if current_user.is_authenticated else '#6366f1' }}">
+          {{ current_user.name[0].upper() if current_user.is_authenticated else '?' }}
+        </div>
+        <div class="user-info">
+          <div class="user-name">{{ current_user.name if current_user.is_authenticated else 'Guest' }}</div>
+          <div class="user-role">{{ current_user.role.title() if current_user.is_authenticated else '' }}</div>
+        </div>
+        <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Logout">⏻</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Area -->
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-title">
+        {% block page_title %}Dashboard{% endblock %}
+        <small>{% block page_subtitle %}AI-Powered Smart Classroom{% endblock %}</small>
+      </div>
+      <div class="topbar-right">
+        <div class="live-badge"><div class="status-dot"></div> LIVE</div>
+        <button class="alert-btn" onclick="openAlertDrawer()" title="Alerts">
+          🔔 <span class="alert-count" id="topbar-alert-count">0</span>
+        </button>
+        <div style="font-size:13px;color:var(--text-secondary);" id="clock"></div>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div style="padding: 12px 28px 0;">
+      {% for category, msg in messages %}
+      <div class="flash-msg {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <main class="page-content fade-in">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<!-- Alert Drawer -->
+<div class="alert-drawer" id="alertDrawer">
+  <div class="alert-drawer-header">
+    <span style="font-weight:700;">🔔 Notifications</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-ghost btn-sm" onclick="markAllRead()">Mark all read</button>
+      <button style="background:none;border:none;color:var(--text-secondary);font-size:20px;cursor:pointer;" onclick="closeAlertDrawer()">✕</button>
+    </div>
+  </div>
+  <div class="alert-list" id="alertList">
+    <div class="empty-state"><div class="empty-icon">🎉</div><p>No alerts yet</p></div>
+  </div>
+</div>
+<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:199;display:none;" id="drawerOverlay" onclick="closeAlertDrawer()"></div>
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+{% block scripts %}{% endblock %}
+<script>
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString();
+  }
+  setInterval(updateClock, 1000); updateClock();
+</script>
+</body>
+</html>

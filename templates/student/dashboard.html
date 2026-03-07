@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block title %}My Dashboard — AI Smart Classroom{% endblock %}
+{% block page_title %}Student Dashboard{% endblock %}
+{% block page_subtitle %}{{ current_user.name }} — {{ profile.department.name if profile and profile.department else 'N/A' }}, Semester {{ profile.semester if profile else '—' }}{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#06b6d4,#3b82f6)">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value">{{ att_stats.pct }}%</div>
+    <div class="stat-label">Attendance</div>
+    <div class="stat-change">{{ att_stats.present }}/{{ att_stats.total }} classes</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#10b981,#06b6d4)">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-value" id="focus-score">
+      {% if recent_focus %}{{ recent_focus[0].avg_attention|round|int }}%{% else %}—{% endif %}
+    </div>
+    <div class="stat-label">Last Focus Score</div>
+    <div class="stat-change">attention level</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#8b5cf6,#6366f1)">
+    <div class="stat-icon">🧠</div>
+    <div class="stat-value">
+      {% if recent_focus %}{{ recent_focus[0].avg_cognitive|round|int }}%{% else %}—{% endif %}
+    </div>
+    <div class="stat-label">Last Cognitive Load</div>
+    <div class="stat-change">mental effort</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#f59e0b,#ef4444)">
+    <div class="stat-icon">📅</div>
+    <div class="stat-value">{{ today_schedule|length }}</div>
+    <div class="stat-label">Classes Today</div>
+    <div class="stat-change">{{ 'Now active: ' ~ today_schedule|selectattr('is_active_now') | list | length if today_schedule else 'None scheduled' }}</div>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px;">
+  <!-- Today's Schedule -->
+  <div class="card">
+    <div class="section-header">
+      <div><div class="section-title">📅 Today's Classes</div><div class="section-sub" id="today-date"></div></div>
+      <a href="{{ url_for('student.schedule') }}" class="btn btn-ghost btn-sm">Full Schedule →</a>
+    </div>
+    {% if today_schedule %}
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      {% for entry in today_schedule %}
+      {% set active = entry.is_active_now() %}
+      <div style="padding:14px;border-radius:10px;border:1px solid {{ 'rgba(16,185,129,0.3)' if active else 'var(--glass-border)' }};background:{{ 'rgba(16,185,129,0.05)' if active else 'var(--glass)' }};display:flex;align-items:center;gap:14px;">
+        <div style="width:4px;height:48px;border-radius:4px;background:{{ entry.subject.color if entry.subject else '#6366f1' }};flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:14px;">{{ entry.subject.name if entry.subject else '—' }}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;">
+            {{ entry.start_time }} – {{ entry.end_time }} &nbsp;|&nbsp; 🏫 {{ entry.room.room_no if entry.room else '—' }} &nbsp;|&nbsp; 👨‍🏫 {{ entry.teacher.name if entry.teacher else '—' }}
+          </div>
+        </div>
+        {% if active %}
+        <form method="POST" action="{{ url_for('student.join_class', entry_id=entry.id) }}">
+          <button type="submit" class="btn btn-primary btn-sm">🚀 Join</button>
+        </form>
+        {% else %}
+        <span class="badge badge-low">Upcoming</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-icon">🎉</div><p>No classes today!</p><a href="{{ url_for('student.schedule') }}" class="btn btn-ghost btn-sm" style="margin-top:12px;">View Full Schedule</a></div>
+    {% endif %}
+  </div>
+
+  <!-- Focus History -->
+  <div class="card">
+    <div class="section-header">
+      <div><div class="section-title">📈 Focus History</div><div class="section-sub">Last 14 sessions</div></div>
+      <a href="{{ url_for('student.analytics') }}" class="btn btn-ghost btn-sm">Full Analytics →</a>
+    </div>
+    <canvas id="focusChart" height="180"></canvas>
+    {% if recent_focus %}
+    <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+      {% for fs in recent_focus %}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--glass);border-radius:8px;font-size:12px;">
+        <span style="color:var(--text-secondary);">{{ fs.timestamp.strftime('%b %d, %H:%M') }}</span>
+        <span>🎯 {{ fs.avg_attention|round|int }}% attention</span>
+        <span>🧠 {{ fs.avg_cognitive|round|int }}% load</span>
+        <span>{{ {'neutral':'😐','happy':'😊','confused':'😕','bored':'😴','stressed':'😰'}.get(fs.peak_emotion,'😐') }} {{ fs.peak_emotion }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px 0;"><div class="empty-icon">📊</div><p>Join a classroom to see your focus data</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Attendance Overview -->
+<div class="card">
+  <div class="section-header">
+    <div><div class="section-title">✅ Attendance Overview</div></div>
+    <a href="{{ url_for('student.attendance') }}" class="btn btn-ghost btn-sm">Details →</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:30px;">
+    <div style="position:relative;width:120px;height:120px;flex-shrink:0;">
+      <canvas id="attRing"></canvas>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <span style="font-size:22px;font-weight:800;">{{ att_stats.pct }}%</span>
+        <span style="font-size:10px;color:var(--text-secondary);">Present</span>
+      </div>
+    </div>
+    <div style="flex:1;">
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>Classes Present</span><span style="font-weight:600;color:var(--accent-green);">{{ att_stats.present }}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:{{ att_stats.pct }}%;background:var(--accent-green);"></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);">
+        {% if att_stats.pct >= 75 %}<span style="color:var(--accent-green);">✅ Attendance is good — above 75%</span>
+        {% elif att_stats.pct >= 60 %}<span style="color:var(--accent-yellow);">⚠️ Attendance is borderline — attend more classes</span>
+        {% else %}<span style="color:var(--accent-red);">🚨 Low attendance — at risk of shortage</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/student_dashboard.js') }}"></script>
+<script>
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long'});
+// Attendance ring
+new Chart(document.getElementById('attRing'), {
+  type: 'doughnut',
+  data: {
+    datasets: [{
+      data: [{{ att_stats.present }}, {{ att_stats.total - att_stats.present }}],
+      backgroundColor: ['#10b981','rgba(255,255,255,0.05)'],
+      borderWidth: 0
+    }]
+  },
+  options: { responsive:false, cutout:'78%', plugins:{legend:{display:false}} }
+});
+// Focus History Chart
+fetch('/student/api/focus-history')
+  .then(r=>r.json())
+  .then(d=>{
+    if (!d.labels.length) return;
+    new Chart(document.getElementById('focusChart'),{
+      type:'line',
+      data:{
+        labels:d.labels,
+        datasets:[
+          {label:'Attention',data:d.attention,borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,0.1)',fill:true,tension:0.4,pointRadius:3},
+          {label:'Cognitive',data:d.cognitive,borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,0.1)',fill:true,tension:0.4,pointRadius:3}
+        ]
+      },
+      options:{responsive:true,plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#94a3b8',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#94a3b8',font:{size:10}},min:0,max:100}}}
+    });
+  });
+</script>
+{% endblock %}

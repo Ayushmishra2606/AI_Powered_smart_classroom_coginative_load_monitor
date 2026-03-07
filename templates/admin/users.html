@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users — Admin{% endblock %}
+{% block page_title %}User Management{% endblock %}
+{% block page_subtitle %}All registered users{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="section-header">
+    <div class="section-title">👥 All Users ({{ users|length }})</div>
+    <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-sm">+ Add User</a>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Action</th></tr></thead>
+      <tbody>
+      {% for u in users %}
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:10px;"><div class="student-avatar" style="background:{{ u.avatar_color }}">{{ u.name[0] }}</div><span style="font-weight:600;">{{ u.name }}</span></div></td>
+        <td style="font-size:12px;color:var(--text-secondary);">{{ u.email }}</td>
+        <td><span class="badge {{ 'badge-attentive' if u.role=='teacher' else ('badge-info' if u.role=='student' else 'badge-warning') }}">{{ u.role.title() }}</span></td>
+        <td style="font-size:12px;color:var(--text-muted);">{{ u.created_at.strftime('%b %d, %Y') }}</td>
+        <td>
+          {% if u.id != current_user.id %}
+          <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" onsubmit="return confirm('Delete {{ u.name }}?')">
+            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+          </form>
+          {% else %}<span style="font-size:12px;color:var(--text-muted);">You</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

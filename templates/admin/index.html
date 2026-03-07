@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Admin Panel — AI Smart Classroom{% endblock %}
+{% block page_title %}Admin Control Panel{% endblock %}
+{% block page_subtitle %}Manage university, timetable, users, and subjects{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#f59e0b,#ef4444)">
+    <div class="stat-icon">🎓</div>
+    <div class="stat-value">{{ stats.students }}</div>
+    <div class="stat-label">Students</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#3b82f6,#8b5cf6)">
+    <div class="stat-icon">👨‍🏫</div>
+    <div class="stat-value">{{ stats.teachers }}</div>
+    <div class="stat-label">Teachers</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#06b6d4,#10b981)">
+    <div class="stat-icon">📚</div>
+    <div class="stat-value">{{ stats.subjects }}</div>
+    <div class="stat-label">Subjects</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#10b981,#06b6d4)">
+    <div class="stat-icon">🏫</div>
+    <div class="stat-value">{{ stats.rooms }}</div>
+    <div class="stat-label">Classrooms</div>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px;">
+  <!-- Add Department -->
+  <div class="card">
+    <div class="section-header"><div class="section-title">🏢 Departments</div>
+      <button class="btn btn-primary btn-sm" onclick="toggleForm('deptForm')">+ Add</button></div>
+    <div id="deptForm" style="display:none;margin-bottom:16px;">
+      <form method="POST" action="{{ url_for('admin.add_department') }}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+        <div class="form-group" style="margin:0;"><label>Name</label><input class="form-control" name="name" placeholder="Computer Science" required/></div>
+        <div class="form-group" style="margin:0;"><label>Code</label><input class="form-control" name="code" placeholder="CS" required/></div>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+    </div>
+    {% if departments %}
+    <table class="data-table"><thead><tr><th>Code</th><th>Name</th><th>Subjects</th></tr></thead><tbody>
+    {% for d in departments %}
+    <tr><td><span class="badge badge-info">{{ d.code }}</span></td><td>{{ d.name }}</td><td>{{ d.subjects|length }}</td></tr>
+    {% endfor %}</tbody></table>
+    {% else %}<div class="empty-state"><div class="empty-icon">🏢</div><p>No departments yet</p></div>{% endif %}
+  </div>
+
+  <!-- Add Subject -->
+  <div class="card">
+    <div class="section-header"><div class="section-title">📚 Subjects</div>
+      <button class="btn btn-primary btn-sm" onclick="toggleForm('subjectForm')">+ Add</button></div>
+    <div id="subjectForm" style="display:none;margin-bottom:16px;">
+      <form method="POST" action="{{ url_for('admin.add_subject') }}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group" style="margin:0;"><label>Name</label><input class="form-control" name="name" placeholder="Data Structures" required/></div>
+          <div class="form-group" style="margin:0;"><label>Code</label><input class="form-control" name="code" placeholder="DS301" required/></div>
+          <div class="form-group" style="margin:0;"><label>Department</label>
+            <select class="form-control" name="department_id">
+              {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;"><label>Credits</label>
+            <select class="form-control" name="credits">{% for i in [2,3,4] %}<option value="{{ i }}">{{ i }}</option>{% endfor %}</select>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:8px;width:100%;justify-content:center;">Add Subject</button>
+      </form>
+    </div>
+    {% if subjects %}
+    <table class="data-table"><thead><tr><th>Subject</th><th>Code</th><th>Dept</th><th>Credits</th></tr></thead><tbody>
+    {% for s in subjects %}
+    <tr>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ s.color }};margin-right:6px;"></span>{{ s.name }}</td>
+      <td style="font-family:monospace;font-size:12px;">{{ s.code }}</td>
+      <td>{{ s.department.code if s.department else '—' }}</td>
+      <td>{{ s.credits }}</td>
+    </tr>
+    {% endfor %}</tbody></table>
+    {% else %}<div class="empty-state"><div class="empty-icon">📚</div><p>No subjects yet</p></div>{% endif %}
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px;">
+  <!-- Rooms -->
+  <div class="card">
+    <div class="section-header"><div class="section-title">🏫 Classrooms</div>
+      <button class="btn btn-primary btn-sm" onclick="toggleForm('roomForm')">+ Add</button></div>
+    <div id="roomForm" style="display:none;margin-bottom:16px;">
+      <form method="POST" action="{{ url_for('admin.add_room') }}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;">
+        <div class="form-group" style="margin:0;"><label>Room No</label><input class="form-control" name="room_no" placeholder="A-101" required/></div>
+        <div class="form-group" style="margin:0;"><label>Building</label><input class="form-control" name="building" placeholder="Main Block"/></div>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+    </div>
+    {% if rooms %}
+    <table class="data-table"><thead><tr><th>Room</th><th>Building</th><th>Capacity</th></tr></thead><tbody>
+    {% for r in rooms %}<tr><td><strong>{{ r.room_no }}</strong></td><td style="color:var(--text-secondary);">{{ r.building }}</td><td>{{ r.capacity }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty-state"><div class="empty-icon">🏫</div><p>No rooms yet</p></div>{% endif %}
+  </div>
+
+  <!-- Teachers -->
+  <div class="card">
+    <div class="section-header"><div class="section-title">👨‍🏫 Teachers</div>
+      <a href="{{ url_for('admin.users') }}" class="btn btn-ghost btn-sm">All Users →</a></div>
+    {% if teachers %}
+    <table class="data-table"><thead><tr><th>Teacher</th><th>Email</th></tr></thead><tbody>
+    {% for t in teachers %}
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:8px;"><div class="student-avatar" style="background:{{ t.avatar_color }}">{{ t.name[0] }}</div>{{ t.name }}</div></td>
+      <td style="font-size:12px;color:var(--text-secondary);">{{ t.email }}</td>
+    </tr>{% endfor %}</tbody></table>
+    {% else %}<div class="empty-state"><div class="empty-icon">👨‍🏫</div><p>No teachers yet</p></div>{% endif %}
+  </div>
+</div>
+
+<!-- Timetable -->
+<div class="card">
+  <div class="section-header">
+    <div><div class="section-title">📅 Weekly Timetable</div><div class="section-sub">{{ stats.timetable_entries }} schedule entries</div></div>
+    <button class="btn btn-primary btn-sm" onclick="toggleForm('ttForm')">+ Add Slot</button>
+  </div>
+  <div id="ttForm" style="display:none;margin-bottom:16px;">
+    <form method="POST" action="{{ url_for('admin.add_timetable') }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+        <div class="form-group" style="margin:0;"><label>Subject</label>
+          <select class="form-control" name="subject_id" required>
+            {% for s in subjects %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select></div>
+        <div class="form-group" style="margin:0;"><label>Teacher</label>
+          <select class="form-control" name="teacher_id" required>
+            {% for t in teachers %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+          </select></div>
+        <div class="form-group" style="margin:0;"><label>Room</label>
+          <select class="form-control" name="room_id" required>
+            {% for r in rooms %}<option value="{{ r.id }}">{{ r.room_no }}</option>{% endfor %}
+          </select></div>
+        <div class="form-group" style="margin:0;"><label>Day</label>
+          <select class="form-control" name="day_of_week">
+            {% for i, d in enumerate(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']) %}
+            <option value="{{ i }}">{{ d }}</option>{% endfor %}
+          </select></div>
+        <div class="form-group" style="margin:0;"><label>Start Time</label><input class="form-control" type="time" name="start_time" required/></div>
+        <div class="form-group" style="margin:0;"><label>End Time</label><input class="form-control" type="time" name="end_time" required/></div>
+        <div class="form-group" style="margin:0;"><label>Semester</label>
+          <select class="form-control" name="semester">{% for i in range(1,9) %}<option value="{{ i }}">Sem {{ i }}</option>{% endfor %}</select></div>
+        <div class="form-group" style="margin:0;"><label>Department</label>
+          <select class="form-control" name="department_id">
+            <option value="">All</option>{% for d in departments %}<option value="{{ d.id }}">{{ d.code }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:10px;">Add Timetable Entry</button>
+    </form>
+  </div>
+  {% if timetable %}
+  <div style="overflow-x:auto;">
+  <table class="data-table"><thead><tr><th>Day</th><th>Time</th><th>Subject</th><th>Teacher</th><th>Room</th><th>Sem</th><th>Status</th><th>Action</th></tr></thead><tbody>
+  {% for e in timetable %}
+  <tr>
+    <td>{{ e.day_name() }}</td>
+    <td style="font-family:monospace;font-size:12px;">{{ e.start_time }} – {{ e.end_time }}</td>
+    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ e.subject.color if e.subject else '#6366f1' }};margin-right:6px;"></span>{{ e.subject.name if e.subject else '—' }}</td>
+    <td style="color:var(--text-secondary);">{{ e.teacher.name if e.teacher else '—' }}</td>
+    <td style="font-family:monospace;">{{ e.room.room_no if e.room else '—' }}</td>
+    <td>{{ e.semester }}</td>
+    <td>{% if e.is_active_now() %}<span class="badge badge-attentive">🟢 LIVE</span>{% else %}<span class="badge badge-low">Scheduled</span>{% endif %}</td>
+    <td>
+      <form method="POST" action="{{ url_for('admin.delete_timetable', entry_id=e.id) }}" style="display:inline;" onsubmit="return confirm('Delete?')">
+        <button type="submit" class="btn btn-danger btn-sm">✕</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty-state"><div class="empty-icon">📅</div><p>No timetable entries. Add subjects and rooms first.</p></div>{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleForm(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+// Pass enumerate to Jinja (workaround: loop.index0)
+</script>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Join Class — AI Smart Classroom{% endblock %}
+{% block page_title %}Join Live Class{% endblock %}
+{% block page_subtitle %}You're invited to join a live monitoring session.{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:400px;margin:40px auto;text-align:center;">
+  <div style="font-size:40px;margin-bottom:10px;">👋</div>
+  <h3>{{ entry.subject.name }}</h3>
+  <p style="color:var(--text-secondary);font-size:14px;">Instructor: <strong>{{ entry.teacher.name }}</strong></p>
+  <p style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">Room: {{ entry.room.room_no }} | Code: {{ entry.join_code }}</p>
+
+  <form method="POST">
+    <div class="form-group" style="text-align:left;">
+      <label>Your Name</label>
+      <input type="text" class="form-control" name="guest_name" placeholder="E.g. John Doe" required autocomplete="off">
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;margin-top:10px;">Join as Guest</button>
+  </form>
+</div>
+{% endblock %}

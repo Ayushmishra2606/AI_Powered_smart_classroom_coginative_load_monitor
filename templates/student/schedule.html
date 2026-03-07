@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Schedule — AI Smart Classroom{% endblock %}
+{% block page_title %}Class Schedule{% endblock %}
+{% block page_subtitle %}Weekly timetable — Semester {{ profile.semester if profile else '' }}{% endblock %}
+
+{% block content %}
+{% set day_names = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] %}
+{% set time_slots = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'] %}
+
+<div class="card">
+  <div class="section-header">
+    <div class="section-title">📅 Weekly Timetable</div>
+    <div style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-secondary);">
+      <span>Today: <strong style="color:var(--text-primary);">{{ day_names[now_day] if now_day < 6 else 'Sunday' }}</strong></span>
+    </div>
+  </div>
+
+  {% if entries %}
+  <!-- Timetable Grid -->
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;min-width:700px;">
+      <thead>
+        <tr>
+          <th style="padding:8px 12px;font-size:11px;color:var(--text-muted);text-align:left;width:80px;">Time</th>
+          {% for d in day_names %}
+          <th style="padding:8px 12px;font-size:12px;color:{{ 'var(--accent-cyan)' if loop.index0 == now_day else 'var(--text-secondary)' }};font-weight:{{ '700' if loop.index0 == now_day else '500' }};text-align:left;">
+            {{ d }}{% if loop.index0 == now_day %} <span style="font-size:9px;background:var(--accent-cyan);color:#000;padding:1px 5px;border-radius:4px;margin-left:4px;">TODAY</span>{% endif %}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for slot in time_slots %}
+        <tr style="border-top:1px solid rgba(255,255,255,0.04);">
+          <td style="padding:6px 12px;font-size:11px;color:var(--text-muted);font-family:monospace;vertical-align:top;padding-top:10px;">{{ slot }}</td>
+          {% for day_idx in range(6) %}
+          <td style="padding:4px 6px;vertical-align:top;min-height:50px;">
+            {% for e in entries if e.day_of_week == day_idx and e.start_time[:2] == slot[:2] %}
+            <div style="background:{{ e.subject.color ~ '22' if e.subject else 'var(--glass)' }};border-left:3px solid {{ e.subject.color if e.subject else '#6366f1' }};border-radius:6px;padding:6px 8px;margin-bottom:4px;">
+              <div style="font-size:12px;font-weight:700;">{{ e.subject.name if e.subject else '—' }}</div>
+              <div style="font-size:10px;color:var(--text-secondary);">{{ e.start_time }}–{{ e.end_time }} · {{ e.room.room_no if e.room else '—' }}</div>
+              {% if e.is_active_now() %}
+              <form method="POST" action="{{ url_for('student.join_class', entry_id=e.id) }}" style="margin-top:4px;">
+                <button type="submit" style="background:var(--accent-green);color:#fff;border:none;border-radius:4px;font-size:10px;font-weight:700;padding:2px 8px;cursor:pointer;">🚀 JOIN NOW</button>
+              </form>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">📅</div><p>No classes scheduled. Ask your admin to set up the timetable.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

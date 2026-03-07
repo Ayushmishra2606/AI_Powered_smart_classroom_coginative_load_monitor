@@ -20,8 +20,6 @@ ENV/
 # ========================
 ai/
 routes/
-static/
-templates/
 app.py
 config.py
 classroom.db

@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Live Monitor — AI Smart Classroom{% endblock %}
+{% block page_title %}Live Monitoring{% endblock %}
+{% block page_subtitle %}Real-time per-student AI analysis — updates every 2s{% endblock %}
+
+{% block content %}
+<!-- Class Summary Bar -->
+<div class="stats-grid" style="margin-bottom:20px;" id="monitor-stats">
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#06b6d4,#3b82f6);">
+    <div class="stat-icon">📊</div>
+    <div class="stat-value" id="m-avg-att">--</div>
+    <div class="stat-label">Avg Attention</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#8b5cf6,#6366f1);">
+    <div class="stat-icon">🧠</div>
+    <div class="stat-value" id="m-avg-cog">--</div>
+    <div class="stat-label">Avg Cognitive Load</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#06b6d4,#10b981); border:2px solid var(--accent-cyan);">
+    <div class="stat-icon">🔥</div>
+    <div class="stat-value" id="m-engagement">--</div>
+    <div class="stat-label">Class Engagement</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(135deg,#10b981,#06b6d4);">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value" id="m-attentive">0</div>
+    <div class="stat-label">Attentive</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(90deg,#f59e0b,#ef4444);">
+    <div class="stat-icon">🚨</div>
+    <div class="stat-value" id="m-distracted">0</div>
+    <div class="stat-label">Off-Task</div>
+  </div>
+  <div class="stat-card" style="--card-accent:linear-gradient(135deg,#ef4444,#f59e0b);">
+    <div class="stat-icon">📹</div>
+    <div class="stat-value" style="font-size:12px; height:60px; display:flex; align-items:center; justify-content:center; background:#000; border-radius:8px; margin:4px 0; overflow:hidden;">
+        <img src="/api/teacher_feed" style="width:100%; height:100%; object-fit:cover;" alt="Live Broadcast"/>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+        <div class="stat-label">Your Broadcast</div>
+        <button id="screenShareBtn" onclick="toggleScreenShare()" class="btn btn-primary" style="font-size:10px; padding:2px 8px;">Share Screen 🖥️</button>
+    </div>
+  </div>
+</div>
+
+{% if students %}
+<div class="monitor-grid" id="monitorGrid">
+  {% for s in students %}
+  <div class="monitor-card" id="mcard-{{ s.id }}">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div class="student-avatar" style="background:{{ s.avatar_color }};width:40px;height:40px;font-size:16px;">{{ s.user.name[0] if s.user else '?' }}</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;">{{ s.user.name if s.user else 'Unknown' }}</div>
+        <div style="font-size:11px;color:var(--text-secondary);">{{ s.enrollment_no or '—' }}</div>
+      </div>
+      <span class="badge" id="mstate-{{ s.id }}" style="margin-left:auto;">--</span>
+    </div>
+
+    <!-- Real-time Video Feed (First student demo) -->
+    {% if loop.first %}
+    <div style="margin-bottom:12px; height: 100px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid var(--glass-border);">
+        <img src="/api/video_feed" style="width: 100%; height: 100%; object-fit: cover;" alt="Live AI Vision"/>
+    </div>
+    {% endif %}
+
+
+    <!-- Attention -->
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:4px;">
+        <span>Attention</span>
+        <span id="matt-{{ s.id }}" style="font-weight:600;color:var(--text-primary);">--</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="matt-bar-{{ s.id }}" style="width:0%;background:linear-gradient(90deg,#06b6d4,#3b82f6);"></div>
+      </div>
+    </div>
+
+    <!-- Cognitive Load -->
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:4px;">
+        <span>Cognitive Load</span>
+        <span id="mcog-{{ s.id }}" style="font-weight:600;color:var(--text-primary);">--</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="mcog-bar-{{ s.id }}" style="width:0%;background:linear-gradient(90deg,#8b5cf6,#6366f1);"></div>
+      </div>
+    </div>
+
+    <!-- Meta info -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:80px;background:var(--glass);border-radius:6px;padding:6px 10px;font-size:11px;">
+        <div style="color:var(--text-muted);">Emotion</div>
+        <div id="memotion-{{ s.id }}" style="font-weight:600;margin-top:2px;">--</div>
+      </div>
+      <div style="flex:1;min-width:80px;background:var(--glass);border-radius:6px;padding:6px 10px;font-size:11px;">
+        <div style="color:var(--text-muted);">Blink Rate</div>
+        <div id="mblink-{{ s.id }}" style="font-weight:600;margin-top:2px;">--</div>
+      </div>
+      <div style="flex:1;min-width:80px;background:var(--glass);border-radius:6px;padding:6px 10px;font-size:11px;">
+        <div style="color:var(--text-muted);">Head Pose</div>
+        <div id="mpose-{{ s.id }}" style="font-weight:600;margin-top:2px;">--</div>
+      </div>
+    </div>
+
+    <!-- Cognitive state badge -->
+    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
+      <span class="badge" id="mcogstate-{{ s.id }}">--</span>
+      <button onclick="nudgeStudent({{ s.id }})" class="btn btn-danger btn-xs" style="font-size:10px;padding:2px 6px;">Nudge ⚡</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">👥</div>
+    <p>No students enrolled. <a href="{{ url_for('students.index') }}" style="color:var(--accent-cyan);">Add students</a> to start monitoring.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>document.body.dataset.sessionId = "{{ students[0].id if students else 0 }}"; // Fallback for session ID</script>
+<script src="{{ url_for('static', filename='js/monitoring.js') }}"></script>
+{% endblock %}
