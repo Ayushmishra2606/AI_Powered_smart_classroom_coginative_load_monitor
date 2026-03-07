@@ -18,11 +18,7 @@ env/
 ENV/
 
 # ========================
-ai/
-routes/
-app.py
-config.py
-classroom.db
+
 
 
 # AI / ML
