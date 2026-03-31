@@ -97,6 +97,7 @@ def simulate_student(student_id):
         'emotion': state['emotion'],
         'blink_rate': round(state['blink_rate'], 1),
         'head_pose': state['head_pose'],
+        'is_present': state['attention_state'] != 'absent',  # reflects simulated presence
         'timestamp': datetime.utcnow().isoformat()
     }
 

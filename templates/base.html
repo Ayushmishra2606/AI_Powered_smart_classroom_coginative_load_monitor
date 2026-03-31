@@ -55,6 +55,9 @@
       <a href="{{ url_for('monitoring.live') }}" class="nav-link {% if request.endpoint == 'monitoring.live' %}active{% endif %}">
         <span class="nav-icon">👁️</span> Live Monitor
       </a>
+      <a href="{{ url_for('face_attendance.dashboard') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('face_attendance') %}active{% endif %}">
+        <span class="nav-icon">📷</span> Face Attendance
+      </a>
       <a href="{{ url_for('analytics.index') }}" class="nav-link {% if request.endpoint == 'analytics.index' %}active{% endif %}">
         <span class="nav-icon">📈</span> Analytics
       </a>
