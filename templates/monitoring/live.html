@@ -4,7 +4,24 @@
 {% block page_subtitle %}Real-time per-student AI analysis — updates every 2s{% endblock %}
 
 {% block content %}
-<!-- Class Summary Bar -->
+
+{# ─── SSE Status Banner ───────────────────────────────────────────────────── #}
+<div id="sse-status-bar" style="
+    display:flex; align-items:center; gap:10px; margin-bottom:16px;
+    padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600;
+    background: var(--glass); border:1px solid var(--glass-border);">
+  <span id="sse-dot" style="width:10px;height:10px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+  <span id="sse-label">Connecting…</span>
+  {% if active_session %}
+  <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">
+    Session #{{ active_session.id }} — {{ active_session.timetable_entry.subject.name if active_session.timetable_entry and active_session.timetable_entry.subject else 'Active Class' }}
+  </span>
+  {% else %}
+  <span style="margin-left:auto;font-size:11px;color:#f59e0b;">⚠️ No active class session — showing all enrolled students</span>
+  {% endif %}
+</div>
+
+{# ─── Class Summary Bar ───────────────────────────────────────────────────── #}
 <div class="stats-grid" style="margin-bottom:20px;" id="monitor-stats">
   <div class="stat-card" style="--card-accent:linear-gradient(90deg,#06b6d4,#3b82f6);">
     <div class="stat-icon">📊</div>
@@ -43,6 +60,15 @@
   </div>
 </div>
 
+{# ─── Nudge Toast ─────────────────────────────────────────────────────────── #}
+<div id="nudge-toast" style="
+    display:none; position:fixed; top:20px; right:20px; z-index:9999;
+    background:#10b981; color:#fff; padding:12px 20px; border-radius:10px;
+    font-size:14px; font-weight:600; box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    transition:opacity 0.3s;">
+  ⚡ Nudge sent!
+</div>
+
 {% if students %}
 <div class="monitor-grid" id="monitorGrid">
   {% for s in students %}
@@ -56,13 +82,11 @@
       <span class="badge" id="mstate-{{ s.id }}" style="margin-left:auto;">--</span>
     </div>
 
-    <!-- Real-time Video Feed (First student demo) -->
     {% if loop.first %}
     <div style="margin-bottom:12px; height: 100px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid var(--glass-border);">
         <img src="/api/video_feed" style="width: 100%; height: 100%; object-fit: cover;" alt="Live AI Vision"/>
     </div>
     {% endif %}
-
 
     <!-- Attention -->
     <div style="margin-bottom:10px;">
@@ -102,7 +126,7 @@
       </div>
     </div>
 
-    <!-- Cognitive state badge -->
+    <!-- Cognitive state badge + Nudge button -->
     <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
       <span class="badge" id="mcogstate-{{ s.id }}">--</span>
       <button onclick="nudgeStudent({{ s.id }})" class="btn btn-danger btn-xs" style="font-size:10px;padding:2px 6px;">Nudge ⚡</button>
@@ -121,6 +145,9 @@
 {% endblock %}
 
 {% block scripts %}
-<script>document.body.dataset.sessionId = "{{ students[0].id if students else 0 }}"; // Fallback for session ID</script>
+{# Pass the real ClassSession ID (not student ID) to JS #}
+<script>
+  document.body.dataset.sessionId = "{{ active_session.id if active_session else 0 }}";
+</script>
 <script src="{{ url_for('static', filename='js/monitoring.js') }}"></script>
 {% endblock %}

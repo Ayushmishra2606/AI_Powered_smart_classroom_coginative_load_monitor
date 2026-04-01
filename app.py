@@ -34,6 +34,7 @@ def create_app():
     from routes.admin      import admin_bp
     from routes.student    import student_bp
     from routes.classroom  import classroom_bp
+    from routes.face_attendance import face_att_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -44,6 +45,7 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(student_bp)
     app.register_blueprint(classroom_bp)
+    app.register_blueprint(face_att_bp)
 
     # ── Root redirect ────────────────────────────────────────────────────────
     @app.route('/')
@@ -53,6 +55,15 @@ def create_app():
             if current_user.is_admin():   return redirect(url_for('admin.index'))
             return redirect(url_for('dashboard.index'))
         return redirect(url_for('auth.login'))
+
+    # ── Security headers ─────────────────────────────────────────────────────
+    @app.after_request
+    def set_security_headers(response):
+        response.headers['X-Frame-Options']        = 'DENY'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-XSS-Protection']       = '1; mode=block'
+        response.headers['Referrer-Policy']        = 'strict-origin-when-cross-origin'
+        return response
 
     # ── Jinja2 globals ───────────────────────────────────────────────────────
     @app.context_processor

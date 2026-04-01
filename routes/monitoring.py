@@ -1,6 +1,9 @@
-from flask import Blueprint, render_template, Response, current_app
-from flask_login import login_required
+from flask import Blueprint, render_template, Response, current_app, request, redirect, url_for, flash
+from flask_login import login_required, current_user
+from functools import wraps
 from models.user import StudentProfile
+from models.timetable import ClassSession
+from models.attendance import Attendance
 from models.database import db
 from ai.analyzer import analyze_class
 from ai.camera import camera_manager
@@ -9,18 +12,45 @@ import json
 import time
 import base64
 
+
+def teacher_required(f):
+    """Decorator: restrict endpoint to teachers and admins only."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login'))
+        if current_user.role not in ('teacher', 'admin'):
+            flash('Teacher or admin access required.', 'error')
+            return redirect(url_for('auth.login'))
+        return f(*args, **kwargs)
+    return decorated
+
 monitoring_bp = Blueprint('monitoring', __name__)
 
 
 @monitoring_bp.route('/monitoring')
 @login_required
+@teacher_required
 def live():
+    """Live monitoring page — shows all students and the teacher's active session."""
     profiles = StudentProfile.query.all()
-    return render_template('monitoring/live.html', students=profiles)
+    # Find the most recent active ClassSession for this teacher
+    active_session = (
+        ClassSession.query
+        .join(ClassSession.timetable_entry)
+        .filter_by(teacher_id=current_user.id)
+        .filter(ClassSession.status == 'active')
+        .order_by(ClassSession.id.desc())
+        .first()
+    )
+    return render_template('monitoring/live.html',
+                           students=profiles,
+                           active_session=active_session)
 
 
 @monitoring_bp.route('/api/video_feed')
 @login_required
+@teacher_required
 def video_feed():
     """MJPEG stream from the global CameraManager."""
     def generate():
@@ -48,6 +78,7 @@ def teacher_feed():
 
 @monitoring_bp.route('/api/upload_screen', methods=['POST'])
 @login_required
+@teacher_required
 def upload_screen():
     """Endpoint for teacher to upload screen capture frames."""
     data = request.json.get('image')
@@ -80,17 +111,26 @@ def screen_feed():
 
 @monitoring_bp.route('/api/monitoring/stream')
 @login_required
+@teacher_required
 def stream():
-    """SSE stream for live monitoring page — runs analysis inside app context."""
+    """SSE stream for live monitoring page — session-scoped when session_id provided."""
+    session_id = request.args.get('session_id', type=int)
     app = current_app._get_current_object()
 
     def generate():
         with app.app_context():
             while True:
                 try:
-                    profiles = StudentProfile.query.all()
-                    if profiles:
-                        ids   = [p.id for p in profiles]
+                    # Session-scoped: use only students in this session's attendance
+                    if session_id:
+                        atts = Attendance.query.filter_by(class_session_id=session_id).all()
+                        ids  = [a.student_id for a in atts]
+                        profiles = [a.student for a in atts if a.student]
+                    else:
+                        profiles = StudentProfile.query.all()
+                        ids = [p.id for p in profiles]
+
+                    if profiles and ids:
                         names = {p.id: p.user.name for p in profiles if p.user}
                         analysis = analyze_class(ids)
                         for r in analysis['per_student']:

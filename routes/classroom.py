@@ -202,25 +202,39 @@ def leave(session_id):
 @classroom_bp.route('/<int:session_id>/signal', methods=['POST'])
 @login_required
 def send_signal(session_id):
-    """endpoint for students/teachers to send live signals (chat/nudges)."""
-    type = request.json.get('type') # 'chat' or 'nudge'
-    msg  = request.json.get('message')
-    sid  = request.json.get('student_id') # target for nudge or sender for chat
-    
+    """Teachers/admins send nudges; any authenticated user can send a chat message."""
+    payload = request.get_json(silent=True) or {}
+
+    signal_type = payload.get('type', '')
+    msg         = str(payload.get('message', '')).strip()[:500]  # max 500 chars
+    sid         = payload.get('student_id')  # target student profile id (nudge) or sender id (chat)
+
+    # Validate signal type
+    ALLOWED_TYPES = ('chat', 'nudge')
+    if signal_type not in ALLOWED_TYPES:
+        return jsonify({'success': False, 'error': 'Invalid signal type'}), 400
+
+    # Only teachers/admins may send nudges
+    if signal_type == 'nudge' and current_user.role not in ('teacher', 'admin'):
+        return jsonify({'success': False, 'error': 'Unauthorized: only teachers can send nudges'}), 403
+
+    if not msg:
+        return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
+
     if session_id not in LIVE_SIGNALS:
         LIVE_SIGNALS[session_id] = []
-        
+
     signal = {
-        'type': type,
+        'type': signal_type,
         'message': msg,
-        'student_id': sid,
+        'student_id': int(sid) if sid is not None else None,
         'sender': current_user.name,
         'timestamp': time.time()
     }
     LIVE_SIGNALS[session_id].append(signal)
-    
+
     # Keep queue short
     if len(LIVE_SIGNALS[session_id]) > 50:
         LIVE_SIGNALS[session_id].pop(0)
-        
+
     return jsonify({'success': True})

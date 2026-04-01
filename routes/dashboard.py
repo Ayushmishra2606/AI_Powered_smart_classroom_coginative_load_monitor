@@ -7,6 +7,7 @@ from models.timetable import TimetableEntry, ClassSession, ClassEnrollment, gene
 from models.database import db
 from ai.analyzer import analyze_class
 import json
+from datetime import datetime, timedelta
 import time
 
 dashboard_bp = Blueprint('dashboard', __name__)

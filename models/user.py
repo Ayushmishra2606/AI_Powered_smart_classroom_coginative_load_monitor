@@ -40,6 +40,9 @@ class StudentProfile(db.Model):
     enrollment_no  = db.Column(db.String(30), unique=True, nullable=True)
     semester       = db.Column(db.Integer, default=1)
     avatar_color   = db.Column(db.String(20), default='#06b6d4')
+    # Face recognition
+    is_face_trained = db.Column(db.Boolean, default=False)
+    face_image_path = db.Column(db.String(300), nullable=True)
 
     # relationships
     attendances    = db.relationship('Attendance',    backref='student', lazy=True)
