@@ -217,7 +217,71 @@ if (SESSION_ACTIVE) {
 
 
 
-<!-- function startStream() {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ <!-- <div class="log-panel">
+        <div class="stat-card" style="--card-accent: linear-gradient(90deg,#10b981,#06b6d4); padding:20px;">
+            <div class="stat-value" id="count-marked">{{ marked|length }}</div>
+            <div class="stat-label">Students Present</div>
+            <div class="stat-change" id="session-label">in current session</div>
+        </div>
+
+        <div class="card log-card">
+            <div class="section-header" style="padding:15px; border-bottom:1px solid var(--border);">
+                <div class="section-title">Recent Activity</div>
+            </div>
+            <div id="attendance-log" class="log-list">
+                {% if marked %}
+                    {% for sid, ts in marked.items() %}
+                        <div class="log-item" id="log-{{ sid }}">
+                            <span class="recognized-name">{{ profiles|selectattr("id", "equalto", sid)|first|attr("user")|attr("name") }}</span>
+                            <span class="recognized-time">{{ ts }}</span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div id="empty-log" class="empty-state" style="padding:20px 0;">
+                        <p style="font-size:12px;">Waiting for detections...</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SESSION_ACTIVE = {{ 'true' if active_session else 'false' }};
+const attendanceFeed = document.getElementById('attendance-feed');
+const idleOverlay = document.getElementById('idle-overlay');
+const statusBadge = document.getElementById('status-badge');
+const statusText = document.getElementById('status-text');
+const attendanceLog = document.getElementById('attendance-log');
+const countMarked = document.getElementById('count-marked');
+const emptyLog = document.getElementById('empty-log');
+
+let eventSource = null;
+
+function startStream() {
     if (!SESSION_ACTIVE) return;
 
     statusBadge.className = 'status-badge status-idle';
