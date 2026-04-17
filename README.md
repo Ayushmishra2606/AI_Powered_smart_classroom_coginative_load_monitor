@@ -104,10 +104,6 @@ mini-project/
 
 Contributions are welcome! Please fork the repo, create a feature branch, and submit a PR.
 
-## 📜 License
-
-This project is licensed under the MIT License.
-
 ---
 
 **Author:** [Rahul Rathore](https://github.com/rahulrathore579) & [Ayush Mishra](https://github.com/Ayushmishra2606)
