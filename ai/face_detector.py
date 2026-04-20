@@ -33,7 +33,7 @@ class FaceDetector:
             # Fallback to OpenCV Haar Cascades
             cascade_path = os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml')
             self.face_cascade = cv2.CascadeClassifier(cascade_path)
-            print("⚠️ MediaPipe solutions missing. Falling back to OpenCV Haar Cascades for face detection.")
+            print("[WARNING] MediaPipe solutions missing. Falling back to OpenCV Haar Cascades for face detection.")
         
         # State tracking over time
         self.blink_counter = 0

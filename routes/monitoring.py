@@ -12,6 +12,9 @@ import json
 import time
 import base64
 
+# Ensure the camera is started when this module is imported
+camera_manager.start()
+
 
 def teacher_required(f):
     """Decorator: restrict endpoint to teachers and admins only."""
@@ -50,9 +53,9 @@ def live():
 
 @monitoring_bp.route('/api/video_feed')
 @login_required
-@teacher_required
 def video_feed():
-    """MJPEG stream from the global CameraManager."""
+    """MJPEG stream from the global CameraManager — accessible to ALL authenticated users
+    (teachers for monitoring dashboard, students for their Personal Monitor in classroom)."""
     def generate():
         while True:
             frame_bytes, _ = camera_manager.get_latest()
@@ -60,12 +63,14 @@ def video_feed():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
             else:
-                time.sleep(1.0)
+                time.sleep(0.2)
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @monitoring_bp.route('/api/teacher_feed')
+@login_required
 def teacher_feed():
-    """MJPEG stream representing the teacher's broadcast."""
+    """MJPEG stream representing the teacher's live broadcast seen by students.
+    Uses the shared camera_manager feed (same webcam in single-machine demo mode)."""
     def generate():
         while True:
             frame_bytes, _ = camera_manager.get_latest()
@@ -73,7 +78,7 @@ def teacher_feed():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
             else:
-                time.sleep(1.0)
+                time.sleep(0.2)
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @monitoring_bp.route('/api/upload_screen', methods=['POST'])

@@ -29,6 +29,16 @@ def index():
         last_sessions[p.id] = sess
 
     active_instant = TimetableEntry.query.filter_by(teacher_id=current_user.id, class_type='instant').order_by(TimetableEntry.id.desc()).first()
+    
+    # Find any currently active ClassSession for this teacher
+    active_session = (
+        ClassSession.query
+        .join(ClassSession.timetable_entry)
+        .filter_by(teacher_id=current_user.id)
+        .filter(ClassSession.status == 'active')
+        .order_by(ClassSession.id.desc())
+        .first()
+    )
 
     return render_template('dashboard/index.html',
                            teacher=current_user,
@@ -39,7 +49,8 @@ def index():
                            rooms=ClassRoom.query.all(),
                            days=DAYS,
                            now=datetime.now(),
-                           active_instant=active_instant)
+                           active_instant=active_instant,
+                           active_session=active_session)
 
 
 @dashboard_bp.route('/dashboard/instant-class', methods=['POST'])

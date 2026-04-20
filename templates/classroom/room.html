@@ -54,7 +54,9 @@
     </div>
     <div class="cam-feed" style="border-color:var(--accent-purple);">
       <!-- Main Feed: Camera -->
-      <img src="/api/teacher_feed" style="width:100%;height:100%;object-fit:cover;" id="teacher-cam-img" alt="Teacher Broadcast Screen"/>
+      <img src="/api/teacher_feed" style="width:100%;height:100%;object-fit:cover;" id="teacher-cam-img" alt="Teacher Broadcast Screen"
+           onload="document.getElementById('cam-loading').style.display='none'"
+           onerror="this.style.display='none'; document.getElementById('teacher-feed-error').style.display='flex';"/>
       <!-- Main Feed: Screen (Hidden by default) -->
       <img src="/api/screen_feed" style="width:100%;height:100%;object-fit:cover;display:none;" id="screen-img" alt="Teacher Shared Screen"/>
       
@@ -62,23 +64,56 @@
         <div class="cam-icon">📡</div>
         <div style="font-weight:600;">Connecting to Teacher...</div>
       </div>
+      <!-- Error state: shown if camera feed fails -->
+      <div id="teacher-feed-error" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);gap:10px;">
+        <div style="font-size:48px;">📷</div>
+        <div style="font-weight:600;font-size:13px;">Camera Unavailable</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25);">The teacher's camera feed is not active.</div>
+      </div>
     </div>
 
-    <!-- Personal AI Monitoring (Self-View) -->
+    <!-- Personal AI Monitoring / Teacher Broadcast Control -->
     <div style="display:grid; grid-template-columns: 240px 1fr; gap:16px; margin-top:20px;">
-        <div class="cam-feed" style="aspect-ratio:4/3; height:180px;">
-          <img src="/api/video_feed" style="width:100%;height:100%;object-fit:cover;" id="cam-img" alt="Personal Monitor"/>
-          <div class="ai-badge">🤖 Your AI Monitor</div>
-          <div class="timer-badge" id="session-timer">00:00</div>
+        <div>
+          {% if is_teacher %}
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:6px;">🎙️ Broadcast Control</div>
+          <div class="cam-feed" style="aspect-ratio:4/3; height:180px; border-color:var(--accent-cyan);">
+            <img src="/api/teacher_feed" style="width:100%;height:100%;object-fit:cover;" id="cam-img" alt="Broadcast Preview"/>
+            <div class="ai-badge">🔴 LIVE PREVIEW</div>
+          </div>
+          {% else %}
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:6px;">📹 Personal Monitor</div>
+          <div class="cam-feed" style="aspect-ratio:4/3; height:180px;">
+            <img src="/api/video_feed" style="width:100%;height:100%;object-fit:cover;" id="cam-img" alt="Personal Monitor"
+                 onerror="this.style.display='none'; document.getElementById('personal-cam-error').style.display='flex';"/>
+            <div id="personal-cam-error" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,0.3);gap:6px;font-size:11px;">
+              <div style="font-size:28px;">🙈</div>
+              <div>No Camera</div>
+            </div>
+            <div class="ai-badge">🤖 Your AI Monitor</div>
+            <div class="timer-badge" id="session-timer">00:00</div>
+          </div>
+          {% endif %}
         </div>
         
         <div style="display:flex; flex-direction:column; justify-content:center;">
+            {% if is_teacher %}
+            <div style="font-weight:700; color:var(--accent-cyan); margin-bottom:8px;">📢 You are teaching!</div>
+            <div style="display:flex; gap:10px;">
+                <button id="broadcastBtn" onclick="toggleBroadcast()" class="btn btn-sm btn-primary">Start Camera 👤</button>
+                <button id="screenShareBtn" onclick="toggleScreenShare()" class="btn btn-sm btn-secondary">Share Screen 🖥️</button>
+                <button onclick="nudgeDistracted()" class="btn btn-sm btn-danger">Nudge Distracted ⚡</button>
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:8px;">Control your broadcast and engage with the entire class in real-time.</div>
+            {% else %}
             <div style="font-weight:700; color:var(--accent-cyan); margin-bottom:4px;">✨ Personal Focus Analytics</div>
             <div style="font-size:12px; color:var(--text-secondary);">Your engagement is currently being analyzed to optimize your learning experience.</div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Live metrics -->
+    <!-- Live metrics (Student View) or Student Grid (Teacher View) -->
+    {% if not is_teacher %}
     <div class="metrics-row">
       <div class="metric-card" style="border-color:rgba(6,182,212,0.2);">
         <div class="metric-val" id="att-score" style="color:var(--accent-cyan);">—</div>
@@ -95,6 +130,21 @@
         <div class="metric-lbl">Cognitive Load</div>
       </div>
     </div>
+    {% else %}
+    <div style="margin-top:20px;">
+        <div style="font-weight:700; font-size:14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+            <span>👥 Student Real-time Monitor</span>
+            <span style="font-size:11px; color:var(--text-secondary);">Updated every 3s</span>
+        </div>
+        <div id="student-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:12px; max-height:400px; overflow-y:auto; padding-right:10px;">
+            <div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-secondary); font-style:italic; background:var(--bg-card); border-radius:12px; border:1px dashed var(--glass-border);">
+                Waiting for students to join...
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not is_teacher %}
     <div class="metrics-row">
       <div class="metric-card">
         <div style="font-size:32px;" id="emotion-icon">😐</div>
@@ -108,6 +158,7 @@
         <div class="metric-lbl">Head Pose</div>
       </div>
     </div>
+    {% endif %}
   </div>
 
   <!-- Side Panel -->
@@ -120,11 +171,12 @@
         <div>🏷️ {{ entry.subject.code if entry and entry.subject else '—' }}</div>
         <div>🕐 {{ entry.start_time if entry else '—' }} – {{ entry.end_time if entry else '—' }}</div>
         <div>🏫 Room {{ entry.room.room_no if entry and entry.room else '—' }}, {{ entry.room.building if entry and entry.room else '' }}</div>
-        <div>👥 {{ student_count }} students present</div>
+        <div>👥 <span id="student-count-val">{{ student_count }}</span> students present</div>
       </div>
     </div>
 
     <!-- Session summary (updates on leave) -->
+    {% if not is_teacher %}
     <div class="card">
       <div style="font-weight:700;margin-bottom:12px;">📊 Session Summary</div>
       <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
@@ -134,15 +186,30 @@
         <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-secondary);">Status</span><span class="badge badge-attentive">✅ Present</span></div>
       </div>
     </div>
+    {% else %}
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px;">📈 Class Stats</div>
+      <div style="display:flex;flex-direction:column;gap:12px;font-size:12px;">
+        <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--text-secondary);">Avg Attention</span><span id="m-avg-att" style="font-weight:600;">—</span></div>
+            <div class="progress-bar" style="height:4px;"><div class="progress-fill" id="m-att-bar" style="width:0%;background:var(--accent-cyan);"></div></div>
+        </div>
+        <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--text-secondary);">Avg Cog-Load</span><span id="m-avg-cog" style="font-weight:600;">—</span></div>
+            <div class="progress-bar" style="height:4px;"><div class="progress-fill" id="m-cog-bar" style="width:0%;background:var(--accent-purple);"></div></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Classroom Pulse -->
     <div class="card" style="border-color:var(--accent-cyan);">
       <div style="font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-          <span>📈 Class Pulse</span>
+          <span>📈 Engagement Index</span>
           <span class="badge" id="class-eng-val" style="background:var(--accent-cyan);color:#000;">--%</span>
       </div>
       <div class="progress-bar" style="height:8px;"><div class="progress-fill" id="class-eng-bar" style="width:0%;background:var(--accent-cyan);"></div></div>
-      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;text-align:center;">Collective live classroom engagement</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;text-align:center;">Collective live classroom focus</div>
     </div>
 
     <!-- Live Q&A / Chat -->
@@ -152,7 +219,7 @@
         <div style="color:var(--text-secondary);font-style:italic;text-align:center;">No messages yet.</div>
       </div>
       <div style="display:flex;gap:6px;">
-        <input type="text" id="chat-input" class="form-control" style="font-size:12px;padding:6px 10px;" placeholder="Ask a question..."/>
+        <input type="text" id="chat-input" class="form-control" style="font-size:12px;padding:6px 10px;" placeholder="Say something..."/>
         <button onclick="sendChatMessage()" class="btn btn-primary btn-sm">Sent</button>
       </div>
     </div>
@@ -165,10 +232,12 @@
 
 <script>
 const SESSION_ID = {{ session.id }};
+const IS_TEACHER = {{ 'true' if is_teacher else 'false' }};
 const STUDENT_ID = {{ profile.id if profile else current_user.id }};
 const MY_NAME = "{{ current_user.name }}";
 const EMOTION_EMOJI = { neutral:'😐', happy:'😊', confused:'😕', bored:'😴', stressed:'😰', distracted:'🤔' };
-const POSE_LABELS  = { forward:'⬆️ Forward', left:'⬅️ Left', right:'➡️ Right', down:'⬇️ Down' };
+const STATE_CLASS   = { attentive:'badge-attentive', distracted:'badge-distracted', sleeping:'badge-sleeping', absent:'badge-danger' };
+const POSE_LABELS    = { forward:'⬆️ Forward', left:'⬅️ Left', right:'➡️ Right', down:'⬇️ Down' };
 const TIPS = {
   attentive: '✅ Great focus! Keep it up.',
   distracted: '👀 You seem distracted. Refocus on the lesson.',
@@ -182,62 +251,76 @@ let attVals=[], cogVals=[], peakEmotion='neutral', startTime=Date.now();
 // Clock
 setInterval(()=>{ document.getElementById('clock2').textContent=new Date().toLocaleTimeString(); }, 1000);
 
+// Safety: Hide loading overlay after 5 seconds if onload didn't fire
+setTimeout(() => {
+    const loader = document.getElementById('cam-loading');
+    if (loader && loader.style.display !== 'none') {
+        loader.style.display = 'none';
+        console.warn("Camera loading timeout reached. Interface unblocked.");
+    }
+}, 5000);
+
 // Session timer
 setInterval(()=>{
   const secs = Math.floor((Date.now()-startTime)/1000);
   const m=Math.floor(secs/60).toString().padStart(2,'0'), s=(secs%60).toString().padStart(2,'0');
-  document.getElementById('session-timer').textContent = m+':'+s;
-  document.getElementById('dur-label').textContent = Math.floor(secs/60)+' min';
+  if(document.getElementById('session-timer')) document.getElementById('session-timer').textContent = m+':'+s;
+  if(document.getElementById('dur-label')) document.getElementById('dur-label').textContent = Math.floor(secs/60)+' min';
 }, 1000);
 
-// SSE
-const es = new EventSource(`/classroom/${SESSION_ID}/stream`);
+// SSE Selection
+const sseUrl = IS_TEACHER ? `/classroom/${SESSION_ID}/teacher-stream` : `/classroom/${SESSION_ID}/stream`;
+const es = new EventSource(sseUrl);
+
 es.onmessage = (e) => {
   const d = JSON.parse(e.data);
   if (d.error) return;
 
-  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
-  const setW = (id,v)=>{ const el=document.getElementById(id); if(el) el.style.width=v+'%'; };
+  if (!IS_TEACHER) {
+    // --- STUDENT VIEW LOGIC ---
+    const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+    const setW = (id,v)=>{ const el=document.getElementById(id); if(el) el.style.width=v+'%'; };
 
-  set('att-score', d.attention_score+'%');
-  set('cog-score', d.cognitive_load+'%');
-  setW('att-bar', d.attention_score);
-  setW('cog-bar', d.cognitive_load);
+    set('att-score', d.attention_score+'%');
+    set('cog-score', d.cognitive_load+'%');
+    setW('att-bar', d.attention_score);
+    setW('cog-bar', d.cognitive_load);
 
-  // Presence logic
-  const statusBadge = document.querySelector('.badge-attentive');
-  if (statusBadge) {
-      if (d.is_present) {
-          statusBadge.textContent = '✅ Present';
-          statusBadge.className = 'badge badge-attentive';
-      } else {
-          statusBadge.textContent = '⚠️ Away';
-          statusBadge.className = 'badge badge-danger';
-      }
+    const statusBadge = document.querySelector('.badge-attentive');
+    if (statusBadge) {
+        if (d.is_present) {
+            statusBadge.textContent = '✅ Present';
+            statusBadge.className = 'badge badge-attentive';
+        } else {
+            statusBadge.textContent = '⚠️ Away';
+            statusBadge.className = 'badge badge-danger';
+        }
+    }
+
+    document.getElementById('emotion-icon').textContent = EMOTION_EMOJI[d.emotion]||'😐';
+    set('emotion-text', d.emotion);
+    const poseBadge = document.getElementById('pose-badge');
+    if(poseBadge) poseBadge.textContent = POSE_LABELS[d.head_pose]||d.head_pose;
+    set('blink-val', d.blink_rate);
+
+    attVals.push(d.attention_score); cogVals.push(d.cognitive_load);
+    const avgA = (attVals.reduce((a,b)=>a+b,0)/attVals.length).toFixed(1);
+    const avgC = (cogVals.reduce((a,b)=>a+b,0)/cogVals.length).toFixed(1);
+    set('avg-att', avgA+'%');
+    set('avg-cog', avgC+'%');
+
+    if (d.class_summary) {
+        updateClassPulse(d.class_summary);
+    }
+  } else {
+    // --- TEACHER VIEW LOGIC ---
+    updateTeacherDashboard(d);
   }
 
-  document.getElementById('emotion-icon').textContent = EMOTION_EMOJI[d.emotion]||'😐';
-  set('emotion-text', d.emotion);
-  const poseBadge = document.getElementById('pose-badge');
-  if(poseBadge) poseBadge.textContent = POSE_LABELS[d.head_pose]||d.head_pose;
-  set('blink-val', d.blink_rate);
-
-  attVals.push(d.attention_score); cogVals.push(d.cognitive_load);
-  const avgA = (attVals.reduce((a,b)=>a+b,0)/attVals.length).toFixed(1);
-  const avgC = (cogVals.reduce((a,b)=>a+b,0)/cogVals.length).toFixed(1);
-  set('avg-att', avgA+'%');
-  set('avg-cog', avgC+'%');
-
-  // Class Pulse
-  if (d.class_summary) {
-    set('class-eng-val', d.class_summary.engagement_index + '%');
-    setW('class-eng-bar', d.class_summary.engagement_index);
-  }
-
-  // Handle Signals (Nudges / Chat)
+  // Common: Signals (Chat)
   if (d.signals && d.signals.length > 0) {
       d.signals.forEach(s => {
-          if (s.type === 'nudge') {
+          if (s.type === 'nudge' && !IS_TEACHER) {
               showNudge();
           } else if (s.type === 'chat') {
               appendChat(s.sender, s.message);
@@ -245,19 +328,189 @@ es.onmessage = (e) => {
       });
   }
 
-  // Screen Share Detection
-  const toggleBtn = document.getElementById('viewToggleBtn');
-  if (d.is_screen_sharing) {
-      toggleBtn.style.display = 'block';
-  } else if (!isScreenView) {
-      toggleBtn.style.display = 'none';
-      toggleMainView(false); // Force back to camera if sharing stopped
+  // Screen Share Detection (For Students)
+  if (!IS_TEACHER) {
+      const toggleBtn = document.getElementById('viewToggleBtn');
+      if (d.is_screen_sharing) {
+          toggleBtn.style.display = 'block';
+      } else if (!isScreenView) {
+          toggleBtn.style.display = 'none';
+          toggleMainView(false);
+      }
   }
-
-  if(d.emotion !== 'neutral') peakEmotion = d.emotion;
-  const tip = TIPS[d.attention_state] || TIPS['attentive'];
-  set('tip-text', tip);
 };
+
+function updateClassPulse(summary) {
+    const engVal = document.getElementById('class-eng-val');
+    const engBar = document.getElementById('class-eng-bar');
+    if (engVal) engVal.textContent = summary.engagement_index + '%';
+    if (engBar) engBar.style.width = summary.engagement_index + '%';
+    
+    // Pulse color based on engagement
+    if (engBar) {
+        if (summary.engagement_index > 75) engBar.style.background = '#10b981';
+        else if (summary.engagement_index > 40) engBar.style.background = '#06b6d4';
+        else engBar.style.background = '#ef4444';
+    }
+}
+
+function updateTeacherDashboard(data) {
+    const parent = document.getElementById('student-grid');
+    if (!data.students || data.students.length === 0) return;
+    
+    // Update student count
+    const countVal = document.getElementById('student-count-val');
+    if (countVal) countVal.textContent = data.students.length;
+
+    // Update summary stats in side panel
+    if (data.summary) {
+        updateClassPulse(data.summary);
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        const setW = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = v + '%'; };
+        set('m-avg-att', (data.summary.avg_attention || 0) + '%');
+        set('m-avg-cog', (data.summary.avg_cognitive_load || 0) + '%');
+        setW('m-att-bar', data.summary.avg_attention || 0);
+        setW('m-cog-bar', data.summary.avg_cognitive_load || 0);
+    }
+
+    // Update student cards
+    data.students.forEach(s => {
+        let card = document.getElementById(`scard-${s.student_id}`);
+        if (!card) {
+            if (parent.children.length === 1 && parent.children[0].tagName === 'DIV' && parent.children[0].style.textAlign === 'center') {
+                parent.innerHTML = '';
+            }
+            card = document.createElement('div');
+            card.id = `scard-${s.student_id}`;
+            card.className = 'metric-card';
+            card.style.textAlign = 'left';
+            card.style.padding = '10px';
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-weight:700; font-size:12px;">${s.name}</span>
+                    <span id="sbadge-${s.student_id}" class="badge">--</span>
+                </div>
+                <div style="font-size:10px; color:var(--text-secondary); margin-bottom:4px;">Attention: <span id="satt-${s.student_id}">--</span></div>
+                <div class="progress-bar" style="height:4px; margin-bottom:8px;"><div class="progress-fill" id="satt-bar-${s.student_id}" style="width:0%; background:var(--accent-cyan);"></div></div>
+                <div style="font-size:10px; color:var(--text-secondary); margin-bottom:4px;">Cog-Load: <span id="scog-${s.student_id}">--</span></div>
+                <div class="progress-bar" style="height:4px;"><div class="progress-fill" id="scog-bar-${s.student_id}" style="width:0%; background:var(--accent-purple);"></div></div>
+                <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <span id="semo-${s.student_id}" style="font-size:14px;">😐</span>
+                    <button onclick="nudgeIndividual(${s.student_id})" class="btn btn-xs btn-danger" style="font-size:8px; padding:2px 4px;">Nudge</button>
+                </div>
+            `;
+            parent.appendChild(card);
+        }
+        
+        // Update content
+        const badge = document.getElementById(`sbadge-${s.student_id}`);
+        badge.textContent = s.attention_state;
+        badge.className = `badge ${STATE_CLASS[s.attention_state] || ''}`;
+        
+        document.getElementById(`satt-${s.student_id}`).textContent = s.attention_score + '%';
+        document.getElementById(`satt-bar-${s.student_id}`).style.width = s.attention_score + '%';
+        document.getElementById(`scog-${s.student_id}`).textContent = s.cognitive_load + '%';
+        document.getElementById(`scog-bar-${s.student_id}`).style.width = s.cognitive_load + '%';
+        document.getElementById(`semo-${s.student_id}`).textContent = EMOTION_EMOJI[s.emotion] || '😐';
+    });
+}
+
+function nudgeIndividual(sid) {
+    fetch(`/classroom/${SESSION_ID}/signal`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({type: 'nudge', message: 'Please focus!', student_id: sid})
+    });
+}
+
+function nudgeDistracted() {
+    const parent = document.getElementById('student-grid');
+    const distractedIds = [];
+    
+    // In this demo, we can find distracted students from the cards
+    const cards = parent.querySelectorAll('.metric-card');
+    cards.forEach(card => {
+        const id = card.id.replace('scard-', '');
+        const attVal = parseInt(document.getElementById(`satt-${id}`).textContent);
+        if (attVal < 50) {
+            distractedIds.push(id);
+        }
+    });
+
+    if (distractedIds.length === 0) {
+        alert("No students currently meet the distraction threshold (<50% focus).");
+        return;
+    }
+
+    if(!confirm(`Send an automated focus nudge to ${distractedIds.length} distracted students?`)) return;
+    
+    distractedIds.forEach(sid => nudgeIndividual(sid));
+    alert(`Nudge signals broadcasted to ${distractedIds.length} students.`);
+}
+
+// Broadcasting Logic
+let screenStream = null;
+let screenStopSignal = false;
+
+async function toggleScreenShare() {
+    const btn = document.getElementById('screenShareBtn');
+    if (screenStream) {
+        stopScreenShare();
+        return;
+    }
+    try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        btn.textContent = 'Stop Sharing ⏹️';
+        btn.className = 'btn btn-sm btn-danger';
+        
+        const video = document.createElement('video');
+        video.srcObject = screenStream;
+        video.play();
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const captureFrame = async () => {
+            if (!screenStream) return;
+            canvas.width = 640; 
+            canvas.height = (video.videoHeight / video.videoWidth) * canvas.width || 360;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            fetch('/api/upload_screen', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({image: dataUrl})
+            }).catch(()=>{});
+            
+            if (screenStream) setTimeout(captureFrame, 200); // 5 FPS
+        };
+        captureFrame();
+        
+        screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
+    } catch (err) {
+        console.error(err);
+        alert("Screen sharing failed.");
+    }
+}
+
+function stopScreenShare() {
+    if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+    }
+    const btn = document.getElementById('screenShareBtn');
+    btn.textContent = 'Share Screen 🖥️';
+    btn.className = 'btn btn-sm btn-secondary';
+    fetch('/api/upload_screen', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({image: null})
+    }).catch(()=>{});
+}
+
+function toggleBroadcast() {
+    alert("Broadcasting toggled. Students will now see your live feed.");
+}
 
 let isScreenView = false;
 function toggleMainView(forceScreen) {
@@ -266,39 +519,31 @@ function toggleMainView(forceScreen) {
     const label = document.getElementById('feed-label');
     const btn = document.getElementById('viewToggleBtn');
 
-    if (forceScreen !== undefined) isScreenView = !forceScreen; // Flip so the logic below sets it right
+    if (forceScreen !== undefined) isScreenView = !forceScreen;
 
     if (!isScreenView) {
         camImg.style.display = 'none';
         scrImg.style.display = 'block';
         label.textContent = "TEACHER'S SHARED SCREEN";
-        btn.textContent = "Switch to Camera 👤";
+        if(btn) btn.textContent = "Switch to Camera 👤";
         isScreenView = true;
     } else {
         camImg.style.display = 'block';
         scrImg.style.display = 'none';
         label.textContent = "TEACHER'S LIVE BROADCAST";
-        btn.textContent = "Switch to Screen 🖥️";
+        if(btn) btn.textContent = "Switch to Screen 🖥️";
         isScreenView = false;
     }
 }
-
-// Also listen for Class-level updates if they aren't in the student stream
-// For this simple implementation, we assume the server might push them there too
-// But let's add a separate listener for class pulse or just use the student stream.
-// Wait, my analyzer.py returns class_summary in analyze_class. 
-// However, the student `stream()` only returns a subset. Let's fix that in room.html.
-// Actually, I'll update the classroom stream to occasionally send class stats or have a second SSE.
-// OR, I can just use the fact that the classroom stream currently only sends per-student. 
 
 function appendChat(sender, msg) {
     const box = document.getElementById('chat-box');
     const div = document.createElement('div');
     div.innerHTML = `<strong style="color:var(--accent-cyan);">${sender}:</strong> <span>${msg}</span>`;
+    div.className = 'chat-msg';
     div.style.padding = '4px 0';
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
-    // Remove "No messages" placeholder
     if (box.children[0] && box.children[0].style.fontStyle === 'italic') {
         box.removeChild(box.children[0]);
     }
@@ -319,8 +564,10 @@ function sendChatMessage() {
 
 function showNudge() {
     const el = document.getElementById('nudge-overlay');
-    el.style.display = 'flex';
-    setTimeout(() => { el.style.display = 'none'; }, 3000);
+    if(el) {
+        el.style.display = 'flex';
+        setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
 }
 
 function leaveClassroom() {
@@ -330,7 +577,9 @@ function leaveClassroom() {
   fetch(`/classroom/${SESSION_ID}/leave`, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({avg_attention:avgA, avg_cognitive:avgC, peak_emotion:peakEmotion, duration_mins:dur})
-  }).then(()=>{ window.location.href='/student/'; });
+  }).then(()=>{ 
+      window.location.href = IS_TEACHER ? '/dashboard' : '/student/';
+  });
 }
 </script>
 </body>

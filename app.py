@@ -89,7 +89,7 @@ def _seed_demo_data():
     if User.query.count() > 0:
         return   # Already seeded
 
-    print("🌱 Seeding demo data...")
+    print("[Seed] Seeding demo data...")
 
     COLORS = ['#6366f1','#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#3b82f6']
 
@@ -219,7 +219,7 @@ def _seed_demo_data():
     db.session.add(Alert(alert_type='system', message='University AI Classroom system initialized. Welcome!', severity='info'))
 
     db.session.commit()
-    print("✅ Demo data seeded — 1 admin, 2 teachers, 8 students, 3 depts, 6 subjects, 11 timetable entries")
+    print("[OK] Demo data seeded - 1 admin, 2 teachers, 8 students, 3 depts, 6 subjects, 11 timetable entries")
 
 
 app = create_app()

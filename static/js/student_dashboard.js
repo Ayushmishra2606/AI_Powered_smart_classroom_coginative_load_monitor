@@ -1,6 +1,4 @@
-// student_dashboard.js — placeholder for future enhancements
-// Main chart rendering is inline in the templates using Chart.js
-// This file can be used for additional student dashboard JS
+// student_dashboard.js — premium student experience logic
 console.log('Student dashboard loaded');
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,6 +45,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusLabel.style.color = 'var(--accent-red)';
                 btn.disabled = false;
                 btn.textContent = 'Upload & Train Model';
+            }
+        });
+    }
+
+    // Join by Code Form Handler
+    const codeForm = document.getElementById('code-join-form');
+    if (codeForm) {
+        codeForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const codeInput = document.getElementById('class-code-input');
+            const code = codeInput.value.trim().toUpperCase();
+            if (code) {
+                window.location.href = `/classroom/join/${code}`;
             }
         });
     }

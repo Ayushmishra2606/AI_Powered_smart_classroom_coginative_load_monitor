@@ -55,9 +55,9 @@ class FaceRecognizer:
                     raw = json.load(f)
                 # mapping file stores {str_label: student_id}
                 self._id_to_student_id = {int(k): int(v) for k, v in raw.items()}
-                print(f"✅ Face recognizer loaded — {len(self._id_to_student_id)} students trained.")
+                print(f"[OK] Face recognizer loaded -- {len(self._id_to_student_id)} students trained.")
             except Exception as e:
-                print(f"⚠️ Could not load face recognizer: {e}")
+                print(f"[WARNING] Could not load face recognizer: {e}")
                 self._model = None
 
     def is_ready(self) -> bool:
@@ -101,7 +101,7 @@ class FaceRecognizer:
                 lbph_label += 1
 
         if not images:
-            print("⚠️ No face images found — model not trained.")
+            print("[WARNING] No face images found -- model not trained.")
             return False
 
         model = cv2.face.LBPHFaceRecognizer_create()
@@ -114,7 +114,7 @@ class FaceRecognizer:
         # Hot-reload
         self._model           = model
         self._id_to_student_id = label_map
-        print(f"✅ Model retrained — {len(label_map)} students.")
+        print(f"[OK] Model retrained -- {len(label_map)} students.")
         return True
 
     # ── Face extraction ───────────────────────────────────────────────────────

@@ -30,16 +30,33 @@ def get_student_profile():
 @student_required
 def dashboard():
     profile  = get_student_profile()
-    today    = datetime.now().weekday()       # 0=Mon … 6=Sun
-    # Today's timetable filtered by student's semester + dept
+    today    = datetime.now().weekday()
     today_schedule = _get_today_schedule(profile)
-    # Last 3 focus sessions
+    
+    # Active Sessions Detection
+    # 1. Sessions for scheduled classes (Timetable + Enrollments)
+    enrolled_tt_ids = [e.timetable_id for e in ClassEnrollment.query.filter_by(student_id=profile.id).all()] if profile else []
+    
+    active_sessions = (
+        ClassSession.query
+        .join(ClassSession.timetable_entry)
+        .filter(ClassSession.status == 'active')
+        .filter(
+            (TimetableEntry.semester == (profile.semester if profile else -1)) |
+            (TimetableEntry.department_id == (profile.department_id if profile else -1)) |
+            (TimetableEntry.id.in_(enrolled_tt_ids)) |
+            (TimetableEntry.is_public == True)
+        )
+        .all()
+    )
+    
     recent_focus   = FocusSession.query.filter_by(student_id=profile.id if profile else 0)\
                         .order_by(FocusSession.timestamp.desc()).limit(3).all() if profile else []
-    # Attendance stats
     att_stats = _attendance_stats(profile)
+    
     return render_template('student/dashboard.html', profile=profile,
                            today_schedule=today_schedule,
+                           active_sessions=active_sessions,
                            recent_focus=recent_focus, att_stats=att_stats)
 
 

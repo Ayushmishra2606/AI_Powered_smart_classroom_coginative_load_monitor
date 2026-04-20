@@ -5,19 +5,31 @@
 
 {% block content %}
 <!-- Instant Class Banner -->
-{% if active_instant %}
+{% if active_instant or active_session %}
 <div class="card" style="border:1px solid var(--accent-cyan);background:rgba(6,182,212,0.05);margin-bottom:20px;">
   <div style="display:flex;justify-content:space-between;align-items:center;">
-    <div>
-      <h3 style="margin:0;color:var(--accent-cyan);">🔥 Instant Class Active</h3>
-      <p style="margin:4px 0 0;font-size:14px;color:var(--text-secondary);">Students can join this session using the public link.</p>
+    <div style="display:flex;align-items:center;gap:16px;">
+        <div style="background:var(--accent-cyan); color:black; padding:12px; border-radius:12px; font-size:24px;">👨‍🏫</div>
+        <div>
+          <h3 style="margin:0;color:var(--accent-cyan);">{% if active_session %}🚀 Live Class Underway{% else %}🔥 Instant Class Ready{% endif %}</h3>
+          <p style="margin:4px 0 0;font-size:14px;color:var(--text-secondary);">
+            {% if active_session %} You have an active session for <strong>{{ active_session.timetable_entry.subject.name }}</strong>.{% else %} Students can join this session using the public link below.{% endif %}
+          </p>
+        </div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Shareable Join Link</div>
-      <div style="background:var(--bg-dark);padding:8px 12px;border-radius:6px;font-family:monospace;border:1px solid var(--border);display:flex;gap:10px;align-items:center;">
-        <span id="join-link-text">{{ request.host_url }}join/{{ active_instant.join_code }}</span>
-        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('join-link-text').innerText);alert('Copied!')" style="padding:4px 8px;">Copy</button>
+    <div style="text-align:right; display:flex; align-items:center; gap:20px;">
+      {% if active_instant %}
+      <div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Join Link</div>
+        <div style="background:var(--bg-dark);padding:6px 10px;border-radius:6px;font-family:monospace;border:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:13px;">
+            <span id="join-link-text">{{ request.host_url }}join/{{ active_instant.join_code }}</span>
+            <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText(document.getElementById('join-link-text').innerText);alert('Copied!')" style="padding:2px 6px;">Copy</button>
+        </div>
       </div>
+      {% endif %}
+      {% if active_session %}
+      <a href="{{ url_for('classroom.room', session_id=active_session.id) }}" class="btn btn-primary" style="padding:10px 24px;">ENTER CLASSROOM →</a>
+      {% endif %}
     </div>
   </div>
 </div>
