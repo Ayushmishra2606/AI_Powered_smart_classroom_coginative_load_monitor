@@ -1,9 +1,24 @@
+# ── Core Flask ────────────────────────────────────────────────────────────────
 Flask==3.0.0
 Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
+Flask-Migrate==4.0.5
 Werkzeug==3.0.1
+
+# ── Production WSGI Server ────────────────────────────────────────────────────
+gunicorn==21.2.0
+gevent==24.2.1
+whitenoise==6.6.0
+
+# ── Database ──────────────────────────────────────────────────────────────────
+psycopg2-binary==2.9.9
+
+# ── AI / Computer Vision ─────────────────────────────────────────────────────
+# Headless variant: no GUI/display dependencies — required for Linux servers
 numpy==1.26.4
-opencv-contrib-python
-mediapipe
-scipy
-python-dotenv
+opencv-contrib-python-headless==4.9.0.80
+mediapipe==0.10.11
+scipy==1.13.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1

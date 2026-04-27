@@ -12,8 +12,11 @@ import json
 import time
 import base64
 
-# Ensure the camera is started when this module is imported
-camera_manager.start()
+# Ensure the camera is started when this module is imported, but fail gracefully on headless servers
+try:
+    camera_manager.start()
+except Exception as e:
+    print(f"[WARNING] Could not start CameraManager during import: {e}")
 
 
 def teacher_required(f):

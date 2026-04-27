@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Server Error | AI Smart Classroom{% endblock %}
+
+{% block page_title %}Error 500{% endblock %}
+{% block page_subtitle %}Something went wrong on our end.{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
+    <div style="font-size: 8rem; margin-bottom: 1rem; opacity: 0.2;">⚠️</div>
+    <h1 style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--text-primary);">Internal Server Error</h1>
+    <p style="font-size: 1.1rem; color: var(--text-secondary); max-width: 500px; margin-bottom: 2rem;">
+        An unexpected error occurred while processing your request. Our team has been notified and is working to fix it.
+    </p>
+    <div style="display: flex; gap: 12px;">
+        <a href="{{ url_for('root') }}" class="btn btn-primary" style="padding: 12px 24px;">
+            Return Home
+        </a>
+        <button onclick="location.reload()" class="btn btn-ghost" style="padding: 12px 24px; border: 1px solid var(--border-color);">
+            Try Again
+        </button>
+    </div>
+</div>
+{% endblock %}

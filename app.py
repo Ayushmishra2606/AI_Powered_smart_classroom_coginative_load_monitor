@@ -2,22 +2,36 @@
 AI-Powered Smart Classroom — Flask Application Factory
 University Edition: Student / Teacher / Admin roles, Timetable, Live Classroom AI
 """
-from flask import Flask, redirect, url_for
+import os
+import logging
+from logging.handlers import RotatingFileHandler
+from flask import Flask, redirect, url_for, jsonify, render_template
 from flask_login import current_user
-from models.database import db, login_manager
-from config import Config
+from models.database import db, login_manager, migrate
+from config import get_config
 from datetime import datetime
 import random
+from whitenoise import WhiteNoise
 
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object(Config)
+    conf = get_config()
+    app.config.from_object(conf)
 
+    # ── Initialize Extensions ───────────────────────────────────────────────
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'error'
+
+    # ── Static Files (WhiteNoise) ───────────────────────────────────────────
+    if not app.debug:
+        app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='static/')
+
+    # ── Logging ─────────────────────────────────────────────────────────────
+    _setup_logging(app)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -56,14 +70,32 @@ def create_app():
             return redirect(url_for('dashboard.index'))
         return redirect(url_for('auth.login'))
 
+    # ── Health check (required by Render) ────────────────────────────────────
+    @app.route('/health')
+    def health():
+        """Render uses this endpoint to confirm the app is running."""
+        return jsonify({'status': 'ok', 'service': 'AI Smart Classroom'}), 200
+
     # ── Security headers ─────────────────────────────────────────────────────
     @app.after_request
     def set_security_headers(response):
-        response.headers['X-Frame-Options']        = 'DENY'
+        response.headers['X-Frame-Options']        = 'SAMEORIGIN'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-XSS-Protection']       = '1; mode=block'
         response.headers['Referrer-Policy']        = 'strict-origin-when-cross-origin'
+        # Allow camera/microphone for face attendance feature
+        response.headers['Permissions-Policy']     = 'camera=self, microphone=()'
         return response
+
+    # ── Error Handlers ───────────────────────────────────────────────────────
+    @app.errorhandler(404)
+    def not_found_error(error):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        db.session.rollback()
+        return render_template('errors/500.html'), 500
 
     # ── Jinja2 globals ───────────────────────────────────────────────────────
     @app.context_processor
@@ -222,7 +254,30 @@ def _seed_demo_data():
     print("[OK] Demo data seeded - 1 admin, 2 teachers, 8 students, 3 depts, 6 subjects, 11 timetable entries")
 
 
+def _setup_logging(app):
+    """Configures logging for the application."""
+    if app.debug:
+        return
+
+    level = getattr(logging, app.config.get('LOG_LEVEL', 'INFO'))
+    app.logger.setLevel(level)
+
+    # Log to stdout (Render captures this)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(level)
+    formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+    )
+    stream_handler.setFormatter(formatter)
+    app.logger.addHandler(stream_handler)
+
+    app.logger.info('AI Smart Classroom startup')
+
+
+# ── WSGI entry point ─────────────────────────────────────────────────────────
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(debug=True, threaded=True)
+    # Only used for local `python app.py`
+    debug_mode = os.environ.get('FLASK_ENV', 'development') == 'development'
+    app.run(debug=debug_mode, threaded=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

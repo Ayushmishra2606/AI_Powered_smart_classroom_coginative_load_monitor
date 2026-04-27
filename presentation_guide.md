@@ -24,11 +24,11 @@ This guide is designed to fit your 15-minute time limit, dedicating roughly 8-9 
 **Speaker Script/Notes:**
 > "Good morning/afternoon everyone. Our project is an AI-powered monitor designed to measure student engagement and cognitive load in real-time. I handled the core AI and computer vision pipeline. 
 > 
-> To make this work locally and efficiently, we engineered a hybrid pipeline. We use MediaPipe FaceMesh as our primary engine to plot facial landmarks, with a lightweight OpenCV Haar Cascade fallback to ensure we never lose tracking if lighting drops.
+> To make this work locally and efficiently, we designed a hybrid pipeline. We use MediaPipe FaceMesh as our primary engine to plot facial landmarks, with a lightweight OpenCV Haar Cascade fallback to ensure we never lose tracking if lighting drops.
 > 
-> From these 3D landmarks, I wrote the logic to extract two key biometrics: First, the Eye Aspect Ratio—which detects blink rates to gauge fatigue. Second, Head Pose estimation, which tracks yaw and pitch to know exactly where a student's attention is focused. 
+> From these 3D landmarks, I designed the logic to extract two key biometrics: First, the Eye Aspect Ratio—which detects blink rates to gauge fatigue. Second, Head Pose estimation, which tracks yaw and pitch to know exactly where a student's attention is focused. 
 > 
-> The real magic happens in our Cognitive Scoring System. Raw physical data is incredibly noisy, so I designed an Exponential Moving Average algorithm to smooth out the noise, translating every blink and head turn into stable, 0-to-100 percentage scores for Attention and Cognitive Load. Finally, we tied this into an automated LBPH face recognition pipeline, so the system instantly knows *who* it's tracking for zero-friction attendance."
+> The real magic happens in our Cognitive Scoring System. Raw physical data is incredibly noisy, so I designed an Exponential Moving Average algorithm to smooth out the noise, translating every blink and head turn into stable, 0-to-100 percentage scores for Attention and Cognitive Load. Finally, we tied this into an automated LBPH(Local Binary Patterns Histograms) face recognition pipeline, so the system instantly knows *who* it's tracking for zero-friction attendance."
 
 ---
 
