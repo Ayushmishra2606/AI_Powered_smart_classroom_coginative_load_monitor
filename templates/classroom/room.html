@@ -787,76 +787,106 @@ function showNudge() {
     }
 }
 
-// --- WebRTC Implementation ---
+// --- WebRTC Server-Side Audio ---
+let localAudioStream = null;
+let rtcPC = null; // Single connection to the server
+const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
 async function toggleMic() {
     const btn = document.getElementById('micBtn');
     const text = document.getElementById('mic-text');
     const icon = document.getElementById('mic-icon');
 
-    if (localAudioStream) {
-        localAudioStream.getTracks().forEach(t => t.stop());
-        localAudioStream = null;
-        text.textContent = "Start Mic";
-        icon.textContent = "🎤";
-        btn.style.background = "none";
-        document.getElementById('muteBtn').style.display = 'none';
+    if (rtcPC) {
+        stopVoice();
         return;
     }
 
     try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error("Browser does not support media devices or is in an insecure context (HTTP).");
-        }
         localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         text.textContent = "Mic: ON";
         icon.textContent = "🎙️";
         btn.style.background = "rgba(16, 185, 129, 0.2)";
         document.getElementById('muteBtn').style.display = 'block';
     } catch (err) {
-        console.warn("Mic access denied:", err);
-        let errMsg = "Microphone blocked by browser.";
-        if (err.name === 'NotAllowedError') errMsg = "Permission denied. Please allow mic in browser settings.";
-        else if (err.name === 'SecurityError') errMsg = "Security Policy violation. Use HTTPS or localhost.";
-        
+        console.warn("Mic access denied, continuing as listener only:", err);
         text.textContent = "Listening...";
         icon.textContent = "👂";
         btn.style.background = "rgba(6, 182, 212, 0.1)";
         document.getElementById('muteBtn').style.display = 'none';
-        
-        // Show a temporary tooltip or alert for the policy violation
-        showToast ? showToast(errMsg, 'warning') : alert(errMsg);
+        localAudioStream = null;
     }
 
-    // Connect logic
-    if (IS_TEACHER) {
-        broadcastRTCSignal({ type: 'teacher-ready' });
-    } else {
-        initiateRTC(TEACHER_USER_ID);
+    startVoice();
+}
+
+function stopVoice() {
+    const btn = document.getElementById('micBtn');
+    const text = document.getElementById('mic-text');
+    const icon = document.getElementById('mic-icon');
+
+    if (rtcPC) {
+        rtcPC.close();
+        rtcPC = null;
     }
+    if (localAudioStream) {
+        localAudioStream.getTracks().forEach(t => t.stop());
+        localAudioStream = null;
+    }
+    
+    text.textContent = "Start Mic";
+    icon.textContent = "🎤";
+    btn.style.background = "none";
+    document.getElementById('muteBtn').style.display = 'none';
 }
 
-function broadcastRTCSignal(data) {
-    fetch(`/classroom/${SESSION_ID}/signal`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            type: 'rtc-signal',
-            message: JSON.stringify(data),
-            target_id: data.target_id || null
-        })
-    }).catch(e => console.error("RTC Signal Error:", e));
-}
+async function startVoice() {
+    rtcPC = new RTCPeerConnection(ICE_CONFIG);
 
-function initiateRTC(targetId) {
-    if (!targetId && !IS_TEACHER) targetId = TEACHER_USER_ID;
-    if (!targetId) return;
+    // If we have a local stream, add it to the PC (only for teacher or talking student)
+    if (localAudioStream) {
+        localAudioStream.getTracks().forEach(track => {
+            rtcPC.addTrack(track, localAudioStream);
+        });
+    }
 
-    const pc = createPeerConnection(targetId);
-    pc.createOffer().then(offer => {
-        pc.setLocalDescription(offer);
-        broadcastRTCSignal({ type: 'offer', sdp: offer, target_id: targetId });
-    });
+    // When the server sends a track (the teacher's audio)
+    rtcPC.ontrack = (event) => {
+        console.log("Received remote audio track from server");
+        const remoteAudio = document.createElement('audio');
+        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.autoplay = true;
+        remoteAudio.playsinline = true;
+        // Hidden audio element
+        document.body.appendChild(remoteAudio);
+    };
+
+    // Negotiation
+    const offer = await rtcPC.createOffer();
+    await rtcPC.setLocalDescription(offer);
+
+    // Send offer to our new Server-Side RTC endpoint
+    try {
+        const response = await fetch('/rtc/offer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                sdp: rtcPC.localDescription.sdp,
+                type: rtcPC.localDescription.type,
+                session_id: SESSION_ID,
+                is_teacher: IS_TEACHER
+            })
+        });
+        const answer = await response.json();
+        if (answer.error) throw new Error(answer.error);
+
+        await rtcPC.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log("WebRTC Server-Side Connection Established");
+    } catch (err) {
+        console.error("RTC Server Error:", err);
+        showToast ? showToast("Voice server unavailable", "warning") : null;
+        stopVoice();
+    }
 }
 
 let isMuted = false;
@@ -878,61 +908,11 @@ function toggleMute() {
     }
 }
 
-function createPeerConnection(remoteUserId) {
-    if (rtcPeers[remoteUserId]) return rtcPeers[remoteUserId];
-
-    const pc = new RTCPeerConnection(ICE_CONFIG);
-    rtcPeers[remoteUserId] = pc;
-
-    if (localAudioStream) {
-        localAudioStream.getTracks().forEach(track => pc.addTrack(track, localAudioStream));
-    }
-
-    pc.onicecandidate = event => {
-        if (event.candidate) {
-            broadcastRTCSignal({ type: 'candidate', candidate: event.candidate, target_id: remoteUserId });
-        }
-    };
-
-    pc.ontrack = event => {
-        const container = document.getElementById('audio-container');
-        let audio = document.getElementById(`audio-${remoteUserId}`);
-        if (!audio) {
-            audio = document.createElement('audio');
-            audio.id = `audio-${remoteUserId}`;
-            audio.autoplay = true;
-            container.appendChild(audio);
-        }
-        audio.srcObject = event.streams[0];
-    };
-
-    return pc;
-}
-
+// No more P2P signal handling for voice needed!
 function handleRTCSignal(s) {
     const data = JSON.parse(s.message);
-    const remoteId = s.sender_id;
-
-    if (data.type === 'teacher-ready' && !IS_TEACHER) {
-        console.log("Teacher is ready for voice. Connecting...");
-        initiateRTC(remoteId);
-    } 
-    else if (data.type === 'offer') {
-        const pc = createPeerConnection(remoteId);
-        pc.setRemoteDescription(new RTCSessionDescription(data.sdp)).then(() => {
-            pc.createAnswer().then(answer => {
-                pc.setLocalDescription(answer);
-                broadcastRTCSignal({ type: 'answer', sdp: answer, target_id: remoteId });
-            });
-        });
-    } 
-    else if (data.type === 'answer') {
-        const pc = rtcPeers[remoteId];
-        if (pc) pc.setRemoteDescription(new RTCSessionDescription(data.sdp)).catch(e => console.error("SetRemoteDescription Error:", e));
-    } 
-    else if (data.type === 'candidate') {
-        const pc = rtcPeers[remoteId];
-        if (pc) pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(e => console.warn("AddIceCandidate Error:", e));
+    if (data.type === 'nudge' && !IS_TEACHER) {
+        showNudge();
     }
 }
 
