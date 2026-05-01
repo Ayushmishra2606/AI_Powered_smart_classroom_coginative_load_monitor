@@ -1,11 +1,9 @@
 services:
   - type: web
     name: smart-classroom
-    env: python
+    env: docker
     region: oregon
     plan: free
-    buildCommand: "./build.sh"
-    startCommand: "gunicorn -c gunicorn.conf.py app:app"
     healthCheckPath: /health
     
     # Environment Variables

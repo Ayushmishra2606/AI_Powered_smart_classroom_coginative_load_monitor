@@ -7,7 +7,7 @@ Start with:
 import os
 
 # ── Bind ──────────────────────────────────────────────────────────────────────
-# Render injects PORT automatically; fall back to 10000 (Render's default)
+# Render injects PORT automatically; fall back to 10000
 port   = int(os.environ.get('PORT', 10000))
 bind   = f'0.0.0.0:{port}'
 
