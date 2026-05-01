@@ -59,6 +59,13 @@ flask_session/
 *.onnx
 *.tflite
 
+# Face recognizer backup files (auto-generated, large)
+face-reccognization/face_recognizer_backup_*.yml
+# Face training database (ephemeral on Render free tier, regenerated via UI)
+face-reccognization/database/
+# Uploaded student photos (ephemeral)
+static/face_uploads/
+
 # ========================
 # IDE & Editor
 # ========================

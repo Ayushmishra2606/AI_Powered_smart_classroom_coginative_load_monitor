@@ -155,24 +155,23 @@ def teacher_stream(session_id):
                     atts     = Attendance.query.filter_by(class_session_id=session_id).all()
                     ids      = [a.student_id for a in atts]
                     names    = {a.student_id: a.student.user.name for a in atts if a.student and a.student.user}
+                    # Map student profile id → flask user id for camera lookup
+                    user_id_map = {a.student_id: a.student.user_id for a in atts if a.student and a.student.user_id}
                     if ids:
                         from ai.analyzer import analyze_class
-                        analysis = analyze_class(ids)
+                        analysis = analyze_class(ids, user_id_map)
                         for r in analysis['per_student']:
                             r['name'] = names.get(r['student_id'], 'Student')
-                        
-                        # Add class pulses/signals if any
+
                         signals = LIVE_SIGNALS.get(session_id, [])
-                        
+
                         payload = json.dumps({'students': analysis['per_student'],
                                               'summary': analysis['class_summary'],
                                               'signals': signals})
                     else:
                         payload = json.dumps({'students': [], 'summary': {}})
                     yield f"data: {payload}\n\n"
-                    
-                    # Optional: clear chat signals from teacher queue too? 
-                    # No, teacher should probably see history or we use consumed flag.
+
                 except Exception as e:
                     yield f"data: {json.dumps({'error': str(e)})}\n\n"
                 time.sleep(3)

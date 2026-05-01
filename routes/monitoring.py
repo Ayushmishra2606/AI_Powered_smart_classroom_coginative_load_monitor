@@ -1,4 +1,10 @@
-from flask import Blueprint, render_template, Response, current_app, request, redirect, url_for, flash
+"""
+routes/monitoring.py — Monitoring dashboard and media API endpoints.
+
+Camera feeds now come from BROWSER uploads (getUserMedia → POST JPEG),
+NOT from a server-side webcam. The server never calls cv2.VideoCapture.
+"""
+from flask import Blueprint, render_template, Response, current_app, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
 from models.user import StudentProfile
@@ -12,11 +18,8 @@ import json
 import time
 import base64
 
-# Ensure the camera is started when this module is imported, but fail gracefully on headless servers
-try:
-    camera_manager.start()
-except Exception as e:
-    print(f"[WARNING] Could not start CameraManager during import: {e}")
+# NOTE: No camera_manager.start() here — there is no server-side webcam.
+# Students and teachers upload their own frames from their browsers.
 
 
 def teacher_required(f):
@@ -31,8 +34,11 @@ def teacher_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
 monitoring_bp = Blueprint('monitoring', __name__)
 
+
+# ── Pages ─────────────────────────────────────────────────────────────────────
 
 @monitoring_bp.route('/monitoring')
 @login_required
@@ -40,7 +46,6 @@ monitoring_bp = Blueprint('monitoring', __name__)
 def live():
     """Live monitoring page — shows all students and the teacher's active session."""
     profiles = StudentProfile.query.all()
-    # Find the most recent active ClassSession for this teacher
     active_session = (
         ClassSession.query
         .join(ClassSession.timetable_entry)
@@ -54,52 +59,133 @@ def live():
                            active_session=active_session)
 
 
+# ── Frame Upload Endpoints (Browser → Server) ─────────────────────────────────
+
+@monitoring_bp.route('/api/upload_student_frame', methods=['POST'])
+@login_required
+def upload_student_frame():
+    """
+    Students POST their camera frame here every ~2 seconds.
+    The server runs AI analysis on the frame and stores results.
+    """
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'error': 'No data'}), 400
+
+    image_data = data.get('image')
+    if not image_data:
+        return jsonify({'success': False, 'error': 'No image'}), 400
+
+    try:
+        # Strip data URL header: "data:image/jpeg;base64,..."
+        if ',' in image_data:
+            image_data = image_data.split(',', 1)[1]
+        jpeg_bytes = base64.b64decode(image_data)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Decode error: {e}'}), 400
+
+    metrics = camera_manager.ingest_frame(current_user.id, jpeg_bytes)
+    return jsonify({'success': True, 'metrics': metrics})
+
+
+@monitoring_bp.route('/api/upload_teacher_frame', methods=['POST'])
+@login_required
+@teacher_required
+def upload_teacher_frame():
+    """
+    Teacher POSTs their camera frame here.
+    Stored separately as the broadcast feed for students.
+    """
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'error': 'No data'}), 400
+
+    image_data = data.get('image')
+    if not image_data:
+        # Empty image = teacher stopped broadcasting
+        camera_manager.update_teacher_frame(None)
+        return jsonify({'success': True})
+
+    try:
+        if ',' in image_data:
+            image_data = image_data.split(',', 1)[1]
+        jpeg_bytes = base64.b64decode(image_data)
+        camera_manager.update_teacher_frame(jpeg_bytes)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Decode error: {e}'}), 400
+
+    return jsonify({'success': True})
+
+
+# ── MJPEG Feed Endpoints (Server → Browser) ───────────────────────────────────
+
 @monitoring_bp.route('/api/video_feed')
 @login_required
 def video_feed():
-    """MJPEG stream from the global CameraManager — accessible to ALL authenticated users
-    (teachers for monitoring dashboard, students for their Personal Monitor in classroom)."""
+    """
+    MJPEG stream of the current user's own AI-analyzed frame.
+    Students see their personal AI monitor here.
+    Falls back to placeholder until the browser sends a frame.
+    """
+    user_id = current_user.id
+
     def generate():
         while True:
-            frame_bytes, _ = camera_manager.get_latest()
+            frame_bytes, _ = camera_manager.get_latest(user_id)
             if frame_bytes:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            else:
-                time.sleep(0.2)
+            time.sleep(0.15)  # ~6 FPS for personal monitor
+
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 
 @monitoring_bp.route('/api/teacher_feed')
 @login_required
 def teacher_feed():
-    """MJPEG stream representing the teacher's live broadcast seen by students.
-    Uses the shared camera_manager feed (same webcam in single-machine demo mode)."""
+    """
+    MJPEG stream of the teacher's broadcast camera.
+    Students see the teacher here.
+    Falls back to placeholder until the teacher starts broadcasting.
+    """
     def generate():
         while True:
-            frame_bytes, _ = camera_manager.get_latest()
+            frame_bytes, _ = camera_manager.get_latest(None)  # None = teacher feed
             if frame_bytes:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            else:
-                time.sleep(0.2)
+            time.sleep(0.1)  # ~10 FPS for teacher broadcast
+
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+# ── Screen Share ──────────────────────────────────────────────────────────────
 
 @monitoring_bp.route('/api/upload_screen', methods=['POST'])
 @login_required
 @teacher_required
 def upload_screen():
-    """Endpoint for teacher to upload screen capture frames."""
-    data = request.json.get('image')
-    if data:
-        # data is "data:image/jpeg;base64,..."
-        try:
-            header, encoded = data.split(',', 1)
-            frame_bytes = base64.b64decode(encoded)
-            screen_manager.update_frame(frame_bytes)
-            return json.dumps({'success': True}), 200
-        except Exception as e:
-            return json.dumps({'success': False, 'error': str(e)}), 400
-    return json.dumps({'success': False}), 400
+    """Teacher uploads screen capture frames."""
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'error': 'No data'}), 400
+
+    image_data = data.get('image')
+    if not image_data:
+        # Teacher stopped screen sharing
+        screen_manager.update_frame(None)
+        return jsonify({'success': True})
+
+    try:
+        if ',' in image_data:
+            image_data = image_data.split(',', 1)[1]
+        frame_bytes = base64.b64decode(image_data)
+        screen_manager.update_frame(frame_bytes)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+    return jsonify({'success': True})
+
 
 @monitoring_bp.route('/api/screen_feed')
 def screen_feed():
@@ -110,18 +196,19 @@ def screen_feed():
             if frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-                time.sleep(0.1) # 10 FPS for screen is fine
+                time.sleep(0.1)
             else:
                 time.sleep(0.5)
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
+# ── SSE Monitoring Stream ─────────────────────────────────────────────────────
 
 @monitoring_bp.route('/api/monitoring/stream')
 @login_required
 @teacher_required
 def stream():
-    """SSE stream for live monitoring page — session-scoped when session_id provided."""
+    """SSE stream for live monitoring page."""
     session_id = request.args.get('session_id', type=int)
     app = current_app._get_current_object()
 
@@ -129,10 +216,9 @@ def stream():
         with app.app_context():
             while True:
                 try:
-                    # Session-scoped: use only students in this session's attendance
                     if session_id:
                         atts = Attendance.query.filter_by(class_session_id=session_id).all()
-                        ids  = [a.student_id for a in atts]
+                        ids = [a.student_id for a in atts]
                         profiles = [a.student for a in atts if a.student]
                     else:
                         profiles = StudentProfile.query.all()
@@ -143,6 +229,11 @@ def stream():
                         analysis = analyze_class(ids)
                         for r in analysis['per_student']:
                             r['name'] = names.get(r['student_id'], 'Unknown')
+                            # Indicate whether this student has an active browser camera
+                            # Find their Flask user_id from student profile id
+                            profile = next((p for p in profiles if p.id == r['student_id']), None)
+                            if profile:
+                                r['camera_active'] = camera_manager.is_user_active(profile.user_id)
                         payload = json.dumps({'students': analysis['per_student'],
                                               'summary': analysis['class_summary'],
                                               'is_screen_sharing': screen_manager.is_sharing})

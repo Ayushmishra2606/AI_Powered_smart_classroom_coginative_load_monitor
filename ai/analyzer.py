@@ -102,35 +102,31 @@ def simulate_student(student_id):
     }
 
 
-def analyze_class(student_ids):
+def analyze_class(student_ids, user_id_map: dict | None = None):
     """
-    Runs simulation/real detection for all students and returns:
+    Runs AI analysis for all students and returns:
     - per_student: list of individual results
     - class_summary: aggregated class-level metrics
+
+    Args:
+        student_ids: list of StudentProfile IDs
+        user_id_map: optional dict mapping student_profile_id → flask_user_id
+                     Used to look up per-user uploaded frames from camera_manager.
     """
     results = []
-    
-    # Check if we have real camera hardware
-    if camera_manager.has_hardware:
-        _, metrics = camera_manager.get_latest()
-        if metrics:
-            # We only have 1 camera, so we simulate everyone else,
-            # but assign the real camera data to the first student in the list
-            # for demo purposes
-            real_student_id = student_ids[0] if student_ids else None
-            for sid in student_ids:
-                if sid == real_student_id:
-                    # Update real metrics with the correct student ID
-                    m = metrics.copy()
-                    m['student_id'] = sid
-                    results.append(m)
-                else:
-                    results.append(simulate_student(sid))
-        else:
-            # Hardware found but no frame yet
-            results = [simulate_student(sid) for sid in student_ids]
-    else:
-        results = [simulate_student(sid) for sid in student_ids]
+    user_id_map = user_id_map or {}
+
+    for sid in student_ids:
+        flask_user_id = user_id_map.get(sid)
+        if flask_user_id and camera_manager.is_user_active(flask_user_id):
+            _, metrics = camera_manager.get_latest(flask_user_id)
+            if metrics:
+                m = metrics.copy()
+                m['student_id'] = sid
+                results.append(m)
+                continue
+        # Fall back to simulation for students without an active browser camera
+        results.append(simulate_student(sid))
 
     if not results:
         return {'per_student': [], 'class_summary': {}}
