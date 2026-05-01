@@ -11,24 +11,26 @@
     <div style="display:flex;align-items:center;gap:16px;">
         <div style="background:var(--accent-cyan); color:black; padding:12px; border-radius:12px; font-size:24px;">👨‍🏫</div>
         <div>
-          <h3 style="margin:0;color:var(--accent-cyan);">{% if active_session %}🚀 Live Class Underway{% else %}🔥 Instant Class Ready{% endif %}</h3>
+          <h3 style="margin:0;color:var(--accent-cyan);">{% if active_session %}🚀 Live Class Underway{% else %}🔥 Session Ready{% endif %}</h3>
           <p style="margin:4px 0 0;font-size:14px;color:var(--text-secondary);">
-            {% if active_session %} You have an active session for <strong>{{ active_session.timetable_entry.subject.name }}</strong>.{% else %} Students can join this session using the public link below.{% endif %}
+            {% if active_session %}Active: <strong>{{ active_session.timetable_entry.subject.name if active_session.timetable_entry and active_session.timetable_entry.subject else 'Instant Class' }}</strong> in {{ active_session.timetable_entry.room.room_no if active_session.timetable_entry and active_session.timetable_entry.room else '—' }}{% else %}Students can join using the code below.{% endif %}
           </p>
         </div>
     </div>
-    <div style="text-align:right; display:flex; align-items:center; gap:20px;">
+    <div style="text-align:right; display:flex; align-items:center; gap:12px;">
       {% if active_instant %}
       <div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Join Link</div>
-        <div style="background:var(--bg-dark);padding:6px 10px;border-radius:6px;font-family:monospace;border:1px solid var(--border);display:flex;gap:8px;align-items:center;font-size:13px;">
-            <span id="join-link-text">{{ request.host_url }}join/{{ active_instant.join_code }}</span>
-            <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText(document.getElementById('join-link-text').innerText);alert('Copied!')" style="padding:2px 6px;">Copy</button>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Join Code</div>
+        <div style="background:var(--bg-dark);padding:6px 14px;border-radius:6px;font-family:monospace;border:1px solid var(--border);font-size:20px;font-weight:800;letter-spacing:4px;color:var(--accent-cyan);">
+          {{ active_instant.join_code }}
         </div>
       </div>
       {% endif %}
       {% if active_session %}
       <a href="{{ url_for('classroom.room', session_id=active_session.id) }}" class="btn btn-primary" style="padding:10px 24px;">ENTER CLASSROOM →</a>
+      <form method="POST" action="{{ url_for('dashboard.end_session', session_id=active_session.id) }}" style="margin:0;">
+        <button type="submit" class="btn btn-ghost" style="padding:10px 16px;border-color:var(--accent-red);color:var(--accent-red);">End Session</button>
+      </form>
       {% endif %}
     </div>
   </div>
@@ -238,6 +240,58 @@
       </div>
     </form>
   </div>
+</div>
+
+<!-- Scheduled Classes List -->
+<div class="card" style="margin-top:20px;">
+  <div class="section-header">
+    <div>
+      <div class="section-title">📅 Your Classes &amp; Sessions</div>
+      <div class="section-sub">All scheduled and instant sessions — most recent first</div>
+    </div>
+  </div>
+  {% if all_sessions %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Subject</th><th>Type</th><th>Room</th><th>Date</th><th>Time</th><th>Status</th><th>Students</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sess in all_sessions %}
+        {% set entry = sess.timetable_entry %}
+        <tr style="{{ 'background:rgba(6,182,212,0.04);' if sess.status == 'active' else '' }}">
+          <td style="font-weight:600;">{{ entry.subject.name if entry and entry.subject else 'Instant Class' }}</td>
+          <td><span class="badge" style="background:{{ 'rgba(6,182,212,0.15)' if entry.class_type == 'instant' else 'rgba(139,92,246,0.15)' }};color:{{ '#06b6d4' if entry.class_type == 'instant' else '#8b5cf6' }};">{{ entry.class_type|title }}</span></td>
+          <td style="color:var(--text-secondary);">{{ entry.room.room_no if entry and entry.room else '—' }}</td>
+          <td style="color:var(--text-secondary);font-size:12px;">{{ sess.date.strftime('%d %b %Y') if sess.date else '—' }}</td>
+          <td style="color:var(--text-secondary);font-size:12px;">{{ entry.start_time if entry else '—' }} – {{ entry.end_time if entry else '' }}</td>
+          <td>{% if sess.status == 'active' %}<span class="badge badge-attentive">🔴 Live</span>{% else %}<span class="badge" style="color:var(--text-muted);">Ended</span>{% endif %}</td>
+          <td style="font-size:13px;">{{ sess.attendances|length }} joined</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              {% if sess.status == 'active' %}
+              <a href="{{ url_for('classroom.room', session_id=sess.id) }}" class="btn btn-primary btn-sm">Enter →</a>
+              <form method="POST" action="{{ url_for('dashboard.end_session', session_id=sess.id) }}" style="margin:0;">
+                <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--accent-red);border-color:var(--accent-red);">End</button>
+              </form>
+              {% else %}
+              <span style="font-size:11px;color:var(--text-muted);">{{ sess.ended_at.strftime('%H:%M') if sess.ended_at else 'completed' }}</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📅</div>
+    <p>No classes yet. Use "Start Instant Class" or "Schedule Custom Class" above.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 

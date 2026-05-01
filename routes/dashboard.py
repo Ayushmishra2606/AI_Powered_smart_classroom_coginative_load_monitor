@@ -28,16 +28,29 @@ def index():
             .order_by(MonitoringSession.timestamp.desc()).first()
         last_sessions[p.id] = sess
 
-    active_instant = TimetableEntry.query.filter_by(teacher_id=current_user.id, class_type='instant').order_by(TimetableEntry.id.desc()).first()
-    
     # Find any currently active ClassSession for this teacher
     active_session = (
         ClassSession.query
         .join(ClassSession.timetable_entry)
-        .filter_by(teacher_id=current_user.id)
+        .filter(TimetableEntry.teacher_id == current_user.id)
         .filter(ClassSession.status == 'active')
         .order_by(ClassSession.id.desc())
         .first()
+    )
+
+    # For the join-link banner: only show if there is an ACTIVE instant session
+    active_instant = None
+    if active_session and active_session.timetable_entry.class_type == 'instant':
+        active_instant = active_session.timetable_entry
+
+    # All sessions (active + recent ended) for this teacher to display in the schedule list
+    all_sessions = (
+        ClassSession.query
+        .join(ClassSession.timetable_entry)
+        .filter(TimetableEntry.teacher_id == current_user.id)
+        .order_by(ClassSession.id.desc())
+        .limit(20)
+        .all()
     )
 
     return render_template('dashboard/index.html',
@@ -50,7 +63,8 @@ def index():
                            days=DAYS,
                            now=datetime.now(),
                            active_instant=active_instant,
-                           active_session=active_session)
+                           active_session=active_session,
+                           all_sessions=all_sessions)
 
 
 @dashboard_bp.route('/dashboard/instant-class', methods=['POST'])
@@ -203,3 +217,19 @@ def live_stream():
 
     return Response(generate(), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@dashboard_bp.route('/dashboard/session/<int:session_id>/end', methods=['POST'])
+@login_required
+def end_session(session_id):
+    """End an active class session."""
+    session = ClassSession.query.get_or_404(session_id)
+    # Verify ownership
+    if session.timetable_entry.teacher_id != current_user.id:
+        flash('Unauthorized.', 'error')
+        return redirect(url_for('dashboard.index'))
+    session.status = 'ended'
+    session.ended_at = datetime.utcnow()
+    db.session.commit()
+    flash('Class session ended.', 'success')
+    return redirect(url_for('dashboard.index'))

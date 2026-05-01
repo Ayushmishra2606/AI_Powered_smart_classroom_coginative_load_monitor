@@ -22,7 +22,7 @@
     @media(max-width:900px){ .room-layout{grid-template-columns:1fr;} }
   </style>
 </head>
-<body style="margin:0;">
+<body style="margin:0;" data-user-name="{{ current_user.name }}">
 <div style="background:var(--bg-secondary);border-bottom:1px solid var(--glass-border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
   <div style="display:flex;align-items:center;gap:12px;">
     <div style="font-size:24px;">🧠</div>
@@ -329,13 +329,17 @@ es.onmessage = (e) => {
     updateTeacherDashboard(d);
   }
 
-  // Common: Signals (Chat)
+  // Common: Signals (Chat + Nudge)
   if (d.signals && d.signals.length > 0) {
       d.signals.forEach(s => {
           if (s.type === 'nudge' && !IS_TEACHER) {
               showNudge();
           } else if (s.type === 'chat') {
-              appendChat(s.sender, s.message);
+              // Don't echo back the user's own messages (already shown optimistically)
+              const myName = document.body.dataset.userName || '';
+              if (s.sender !== myName) {
+                  appendChat(s.sender, s.message, false);
+              }
           }
       });
   }
@@ -671,31 +675,51 @@ function toggleMainView(forceScreen) {
     }
 }
 
-function appendChat(sender, msg) {
+function appendChat(sender, msg, isSelf) {
     const box = document.getElementById('chat-box');
+    if (!box) return;
+    // Remove placeholder if present
+    const placeholder = box.querySelector('.chat-placeholder');
+    if (placeholder) placeholder.remove();
+
     const div = document.createElement('div');
-    div.innerHTML = `<strong style="color:var(--accent-cyan);">${sender}:</strong> <span>${msg}</span>`;
     div.className = 'chat-msg';
-    div.style.padding = '4px 0';
+    div.style.cssText = 'padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);';
+    const color = isSelf ? '#10b981' : 'var(--accent-cyan)';
+    div.innerHTML = `<strong style="color:${color};">${sender}:</strong> <span style="color:var(--text-primary);">${msg}</span>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
-    if (box.children[0] && box.children[0].style.fontStyle === 'italic') {
-        box.removeChild(box.children[0]);
-    }
 }
 
 function sendChatMessage() {
     const input = document.getElementById('chat-input');
+    if (!input) return;
     const msg = input.value.trim();
     if (!msg) return;
-    
+
+    // Show own message IMMEDIATELY (optimistic update)
+    appendChat('You', msg, true);
+    input.value = '';
+
     fetch(`/classroom/${SESSION_ID}/signal`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({type: 'chat', message: msg, student_id: null})
-    });
-    input.value = '';
+    }).catch(err => console.error('Chat send error:', err));
 }
+
+// Enter key sends chat
+document.addEventListener('DOMContentLoaded', () => {
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        chatInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
+});
 
 function showNudge() {
     const el = document.getElementById('nudge-overlay');
