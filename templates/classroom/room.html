@@ -36,9 +36,14 @@
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
-    <button id="micBtn" onclick="toggleMic()" class="btn btn-ghost btn-sm" style="border-color:var(--accent-cyan); color:var(--accent-cyan); display:flex; align-items:center; gap:6px;">
-        <span id="mic-icon">🎤</span> <span id="mic-text">Start Mic</span>
-    </button>
+    <div style="display:flex; align-items:center; gap:4px; background:rgba(0,0,0,0.2); padding:4px; border-radius:10px;">
+        <button id="micBtn" onclick="toggleMic()" class="btn btn-ghost btn-sm" style="border-color:var(--accent-cyan); color:var(--accent-cyan); display:flex; align-items:center; gap:6px;">
+            <span id="mic-icon">🎤</span> <span id="mic-text">Start Mic</span>
+        </button>
+        <button id="muteBtn" onclick="toggleMute()" class="btn btn-ghost btn-sm" style="display:none; color:var(--text-secondary); padding:4px 8px;">
+            <span id="mute-icon">🔊</span>
+        </button>
+    </div>
     <div class="live-badge"><div class="status-dot"></div> AI ACTIVE</div>
     <div style="font-size:13px;color:var(--text-secondary);" id="clock2"></div>
     <button onclick="leaveClassroom()" class="btn btn-danger btn-sm">Leave ↩</button>
@@ -776,6 +781,7 @@ async function toggleMic() {
         text.textContent = "Start Mic";
         icon.textContent = "🎤";
         btn.style.background = "none";
+        document.getElementById('muteBtn').style.display = 'none';
         return;
     }
 
@@ -784,11 +790,13 @@ async function toggleMic() {
         text.textContent = "Mic: ON";
         icon.textContent = "🎙️";
         btn.style.background = "rgba(16, 185, 129, 0.2)";
+        document.getElementById('muteBtn').style.display = 'block';
     } catch (err) {
         console.warn("Mic access denied, continuing as listener only:", err);
         text.textContent = "Listening...";
         icon.textContent = "👂";
         btn.style.background = "rgba(6, 182, 212, 0.1)";
+        document.getElementById('muteBtn').style.display = 'none';
     }
 
     // Connect logic
@@ -820,6 +828,25 @@ function initiateRTC(targetId) {
         pc.setLocalDescription(offer);
         broadcastRTCSignal({ type: 'offer', sdp: offer, target_id: targetId });
     });
+}
+
+let isMuted = false;
+function toggleMute() {
+    if (!localAudioStream) return;
+    isMuted = !isMuted;
+    localAudioStream.getAudioTracks().forEach(track => {
+        track.enabled = !isMuted;
+    });
+    
+    const icon = document.getElementById('mute-icon');
+    const btn = document.getElementById('muteBtn');
+    if (isMuted) {
+        icon.textContent = "🔇";
+        btn.style.color = "#ef4444";
+    } else {
+        icon.textContent = "🔊";
+        btn.style.color = "var(--accent-cyan)";
+    }
 }
 
 function createPeerConnection(remoteUserId) {
