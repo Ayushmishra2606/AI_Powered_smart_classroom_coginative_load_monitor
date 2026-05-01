@@ -7,13 +7,21 @@ ENV PYTHONUNBUFFERED 1
 ENV FLASK_APP app.py
 ENV FLASK_ENV production
 
-# Install system dependencies for OpenCV and MediaPipe
+# Install system dependencies for OpenCV, MediaPipe, and WebRTC (aiortc)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    libavdevice-dev \
+    libavfilter-dev \
+    libopus-dev \
+    libvpx-dev \
+    libsrtp2-dev \
+    pkg-config \
+    gcc \
+    python3-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
