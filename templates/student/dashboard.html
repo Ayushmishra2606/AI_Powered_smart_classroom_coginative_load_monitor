@@ -14,14 +14,17 @@
         <div>
             <h2 style="margin:0; font-size:20px; color:var(--accent-cyan); text-transform:uppercase; letter-spacing:1px;">Classroom is Live!</h2>
             <div style="margin-top:4px; font-size:14px; color:var(--text-secondary);">
-                Active: <strong>{{ active_sessions[0].timetable_entry.subject.name }}</strong> with {{ active_sessions[0].timetable_entry.teacher.name }}
+                Active: <strong>{{ active_sessions[0].timetable_entry.subject.name if active_sessions[0].timetable_entry and active_sessions[0].timetable_entry.subject else 'Instant Class' }}</strong>
+                {% if active_sessions[0].timetable_entry and active_sessions[0].timetable_entry.teacher %}
+                with {{ active_sessions[0].timetable_entry.teacher.name }}
+                {% endif %}
             </div>
         </div>
     </div>
     <div style="display:flex; gap:12px; align-items:center;">
         <div style="text-align:right; margin-right:10px;">
             <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Room</div>
-            <div style="font-weight:700;">{{ active_sessions[0].timetable_entry.room.room_no }}</div>
+            <div style="font-weight:700;">{{ active_sessions[0].timetable_entry.room.room_no if active_sessions[0].timetable_entry and active_sessions[0].timetable_entry.room else '—' }}</div>
         </div>
         <form method="POST" action="{{ url_for('student.join_class', entry_id=active_sessions[0].timetable_entry.id) }}">
             <button type="submit" class="btn btn-primary" style="padding:12px 30px; font-weight:800; border-radius:10px; box-shadow:0 5px 15px rgba(6,182,212,0.3);">JOIN CLASSROOM NOW →</button>

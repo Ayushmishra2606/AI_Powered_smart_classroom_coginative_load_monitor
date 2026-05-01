@@ -45,7 +45,8 @@ def dashboard():
             (TimetableEntry.semester == (profile.semester if profile else -1)) |
             (TimetableEntry.department_id == (profile.department_id if profile else -1)) |
             (TimetableEntry.id.in_(enrolled_tt_ids)) |
-            (TimetableEntry.is_public == True)
+            (TimetableEntry.is_public == True) |
+            (TimetableEntry.class_type == 'instant')
         )
         .all()
     )
@@ -98,20 +99,39 @@ def analytics():
 def join_class(entry_id):
     entry   = TimetableEntry.query.get_or_404(entry_id)
     profile = get_student_profile()
-    # Create or get today's session
     today   = date.today()
-    session = ClassSession.query.filter_by(timetable_id=entry_id, date=today).first()
+
+    # Look for an already-active session first
+    session = ClassSession.query.filter_by(
+        timetable_id=entry_id, status='active').first()
+
     if not session:
-        session = ClassSession(timetable_id=entry_id, date=today)
-        db.session.add(session)
+        # Check if there's a today session that just needs to be activated
+        session = ClassSession.query.filter_by(
+            timetable_id=entry_id, date=today).first()
+        if session:
+            # Activate it
+            session.status = 'active'
+        else:
+            # Create a brand new active session
+            session = ClassSession(timetable_id=entry_id, date=today, status='active')
+            db.session.add(session)
         db.session.flush()
-    # Mark attendance
-    existing_att = Attendance.query.filter_by(
-        student_id=profile.id, class_session_id=session.id).first()
-    if not existing_att and profile:
-        att = Attendance(student_id=profile.id, class_session_id=session.id,
-                         status='present', face_verified=True)
-        db.session.add(att)
+
+    # Mark attendance (idempotent)
+    if profile:
+        existing_att = Attendance.query.filter_by(
+            student_id=profile.id, class_session_id=session.id).first()
+        if not existing_att:
+            att = Attendance(
+                student_id=profile.id,
+                class_session_id=session.id,
+                status='present',
+                face_verified=False,  # face_verified=True only when face-recognized
+                joined_at=datetime.utcnow()
+            )
+            db.session.add(att)
+
     db.session.commit()
     return redirect(url_for('classroom.room', session_id=session.id))
 

@@ -91,6 +91,7 @@ def stream(session_id):
     """SSE stream — per-student AI data for this student in this session."""
     profile = StudentProfile.query.filter_by(user_id=current_user.id).first()
     student_id = profile.id if profile else current_user.id
+    user_id    = current_user.id  # Flask user ID for camera_manager lookup
     app = current_app._get_current_object()
 
     def generate():
@@ -98,37 +99,37 @@ def stream(session_id):
             while True:
                 try:
                     from ai.camera import camera_manager
+
+                    # Use real AI metrics if this user has an active browser camera
                     data = None
-                    if camera_manager.has_hardware:
-                        _, metrics = camera_manager.get_latest()
+                    if camera_manager.is_user_active(user_id):
+                        _, metrics = camera_manager.get_latest(user_id)
                         if metrics:
                             data = metrics.copy()
                             data['student_id'] = student_id
-                            
+
+                    # Fall back to simulation if no real frame yet
                     if not data:
                         data = simulate_student(student_id)
-                    
+
                     # Screen share status
                     from ai.screen_manager import screen_manager
                     data['is_screen_sharing'] = screen_manager.is_sharing
-                    
-                    # Also get class pulse for students to see
+
+                    # Class pulse (uses simulation for all; can upgrade later)
                     from ai.analyzer import analyze_class
-                    summary = analyze_class([student_id])['class_summary'] # Get aggregate even if 1 student
+                    summary = analyze_class([student_id], {student_id: user_id})['class_summary']
                     data['class_summary'] = summary
-                    
-                    # Check for live signals (nudges/chats)
+
+                    # Live signals (nudges / chat)
                     signals = LIVE_SIGNALS.get(session_id, [])
                     my_signals = [s for s in signals if s.get('student_id') == student_id or s.get('type') == 'chat']
                     if my_signals:
                         data['signals'] = my_signals
-                        # Basic cleanup: remove signals after sending (or use a timestamp/consumed logic)
-                        # For now, we'll keep it simple: signals are consumed per-client
-                        # To avoid multi-client issues, real app would use Redis/DB
-                    
+
                     yield f"data: {json.dumps(data)}\n\n"
-                    
-                    # Clear locally seen signals (simplistic)
+
+                    # Consume delivered signals
                     if session_id in LIVE_SIGNALS:
                         LIVE_SIGNALS[session_id] = [s for s in LIVE_SIGNALS[session_id] if s not in my_signals]
 

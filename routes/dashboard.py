@@ -57,16 +57,23 @@ def index():
 @login_required
 def start_instant_class():
     """Immediately start an instant class with a public join link."""
-    # Find a default room (or accept from form, but we'll use first available for 'instant')
     from models.timetable import ClassRoom
-    room = ClassRoom.query.first() 
-    # Use a dummy subject for instant class if none provided
     from models.department import Subject
+    from datetime import date
+
+    room = ClassRoom.query.first()
     subject = Subject.query.first()
-    
+
+    if not room:
+        flash('No classrooms configured. Ask admin to add a room first.', 'error')
+        return redirect(url_for('dashboard.index'))
+    if not subject:
+        flash('No subjects configured. Ask admin to add a subject first.', 'error')
+        return redirect(url_for('dashboard.index'))
+
     now = datetime.now()
     end_time = (now + timedelta(hours=1)).strftime('%H:%M')
-    
+
     entry = TimetableEntry(
         subject_id=subject.id,
         teacher_id=current_user.id,
@@ -79,46 +86,59 @@ def start_instant_class():
         join_code=generate_join_code()
     )
     db.session.add(entry)
-    db.session.commit()
-    
-    # Immediately start the session
-    session = ClassSession(timetable_id=entry.id, status='active')
+    db.session.flush()  # get entry.id before commit
+
+    # Immediately create an ACTIVE session
+    session = ClassSession(timetable_id=entry.id, status='active', date=date.today())
     db.session.add(session)
     db.session.commit()
-    
-    flash(f'Instant Class started! Join code: {entry.join_code}', 'success')
-    return redirect(url_for('dashboard.index'))
+
+    flash(f'Instant Class started! Share join code: {entry.join_code}', 'success')
+    return redirect(url_for('classroom.room', session_id=session.id))
 
 @dashboard_bp.route('/dashboard/custom-class', methods=['POST'])
 @login_required
 def schedule_custom_class():
     """Schedule a class for explicitly selected students."""
-    subject_id = request.form.get('subject_id')
-    room_id = request.form.get('room_id')
-    day_of_week = request.form.get('day_of_week')
-    start_time = request.form.get('start_time')
-    end_time = request.form.get('end_time')
-    student_ids = request.form.getlist('student_ids') # list of student profile IDs
-    
+    from datetime import date
+    subject_id  = request.form.get('subject_id', type=int)
+    room_id     = request.form.get('room_id', type=int)
+    day_of_week = request.form.get('day_of_week', type=int)
+    start_time  = request.form.get('start_time')
+    end_time    = request.form.get('end_time')
+    student_ids = request.form.getlist('student_ids')  # list of student profile IDs
+    start_now   = request.form.get('start_now') == '1'  # optional checkbox
+
+    if not subject_id or not room_id or start_time is None or end_time is None:
+        flash('All fields are required to schedule a class.', 'error')
+        return redirect(url_for('dashboard.index'))
+
     entry = TimetableEntry(
         subject_id=subject_id,
         teacher_id=current_user.id,
         room_id=room_id,
-        day_of_week=day_of_week,
+        day_of_week=day_of_week if day_of_week is not None else datetime.now().weekday(),
         start_time=start_time,
         end_time=end_time,
         class_type='custom'
     )
     db.session.add(entry)
-    db.session.commit()
-    
+    db.session.flush()  # get entry.id
+
     for sid in student_ids:
-        enroll = ClassEnrollment(timetable_id=entry.id, student_id=sid)
-        db.session.add(enroll)
-        
+        try:
+            enroll = ClassEnrollment(timetable_id=entry.id, student_id=int(sid))
+            db.session.add(enroll)
+        except (ValueError, TypeError):
+            pass
+
+    # Immediately start an active session so students can join now
+    session = ClassSession(timetable_id=entry.id, status='active', date=date.today())
+    db.session.add(session)
     db.session.commit()
-    flash('Custom Class scheduled successfully', 'success')
-    return redirect(url_for('dashboard.index'))
+
+    flash(f'Class scheduled and session started — students can join now!', 'success')
+    return redirect(url_for('classroom.room', session_id=session.id))
 
 
 @dashboard_bp.route('/api/dashboard/live')

@@ -40,13 +40,12 @@ class CameraManager:
         self._frame_store: dict[int, bytes] = {}        # user_id → latest JPEG bytes
         self._metrics_store: dict[int, dict] = {}       # user_id → latest metrics dict
         self._last_seen: dict[int, float] = {}          # user_id → timestamp of last frame
+        self._detectors: dict[int, FaceDetector] = {}   # user_id → isolated FaceDetector
         self._store_lock = threading.Lock()
 
         # Teacher's broadcast frame (separate from AI analysis)
         self._teacher_frame: bytes | None = None
         self._teacher_lock = threading.Lock()
-
-        self.detector = FaceDetector()
 
         # Compatibility shim: old code checked camera_manager.has_hardware
         self.has_hardware = False  # Always False — no server webcam
@@ -62,7 +61,8 @@ class CameraManager:
     def ingest_frame(self, user_id: int, jpeg_bytes: bytes) -> dict:
         """
         Called by /api/upload_student_frame after receiving a JPEG from the browser.
-        Runs AI analysis and stores result. Returns the metrics dict.
+        Runs AI analysis through a per-user isolated FaceDetector and stores result.
+        Returns the metrics dict.
         """
         try:
             arr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
@@ -70,7 +70,13 @@ class CameraManager:
             if frame is None:
                 return {}
 
-            analyzed_bytes, metrics = self.detector.analyze_frame(frame, user_id)
+            # Get or create an isolated FaceDetector for this user
+            with self._store_lock:
+                if user_id not in self._detectors:
+                    self._detectors[user_id] = FaceDetector()
+                detector = self._detectors[user_id]
+
+            analyzed_bytes, metrics = detector.analyze_frame(frame, user_id)
 
             with self._store_lock:
                 self._frame_store[user_id] = analyzed_bytes
