@@ -15,10 +15,10 @@ psycopg2-binary>=2.9.10
 
 # ── AI / Computer Vision ─────────────────────────────────────────────────────
 # Headless variant: no GUI/display dependencies — required for Linux servers
-numpy==1.26.4
-opencv-contrib-python-headless==4.9.0.80
-mediapipe==0.10.11
-scipy==1.13.0
+numpy>=1.26.0
+opencv-contrib-python-headless>=4.9.0
+mediapipe>=0.10.11
+scipy>=1.13.0
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1

@@ -7,6 +7,9 @@ set -e
 echo "==> Starting build..."
 
 # 1. Install pip dependencies
+echo "==> Upgrading pip..."
+python -m pip install --upgrade pip
+
 echo "==> Installing Python dependencies..."
 pip install -r requirements.txt
 
