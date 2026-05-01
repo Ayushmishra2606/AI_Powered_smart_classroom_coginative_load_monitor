@@ -786,17 +786,27 @@ async function toggleMic() {
     }
 
     try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Browser does not support media devices or is in an insecure context (HTTP).");
+        }
         localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         text.textContent = "Mic: ON";
         icon.textContent = "🎙️";
         btn.style.background = "rgba(16, 185, 129, 0.2)";
         document.getElementById('muteBtn').style.display = 'block';
     } catch (err) {
-        console.warn("Mic access denied, continuing as listener only:", err);
+        console.warn("Mic access denied:", err);
+        let errMsg = "Microphone blocked by browser.";
+        if (err.name === 'NotAllowedError') errMsg = "Permission denied. Please allow mic in browser settings.";
+        else if (err.name === 'SecurityError') errMsg = "Security Policy violation. Use HTTPS or localhost.";
+        
         text.textContent = "Listening...";
         icon.textContent = "👂";
         btn.style.background = "rgba(6, 182, 212, 0.1)";
         document.getElementById('muteBtn').style.display = 'none';
+        
+        // Show a temporary tooltip or alert for the policy violation
+        showToast ? showToast(errMsg, 'warning') : alert(errMsg);
     }
 
     // Connect logic
