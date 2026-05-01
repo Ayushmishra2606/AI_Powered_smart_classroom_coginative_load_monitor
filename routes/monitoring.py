@@ -211,9 +211,13 @@ def screen_feed():
             if frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-                time.sleep(0.1)
+                time.sleep(0.2)
             else:
-                time.sleep(0.5)
+                # Yield placeholder so connection stays alive
+                placeholder = camera_manager._placeholder_frame()
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + placeholder + b'\r\n')
+                time.sleep(1.0)
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
@@ -241,14 +245,15 @@ def stream():
 
                     if profiles and ids:
                         names = {p.id: p.user.name for p in profiles if p.user}
-                        analysis = analyze_class(ids)
+                        # Map student profile ID to Flask User ID for camera tracking
+                        u_map = {p.id: p.user_id for p in profiles}
+                        analysis = analyze_class(ids, user_id_map=u_map)
+                        
                         for r in analysis['per_student']:
                             r['name'] = names.get(r['student_id'], 'Unknown')
-                            # Indicate whether this student has an active browser camera
-                            # Find their Flask user_id from student profile id
-                            profile = next((p for p in profiles if p.id == r['student_id']), None)
-                            if profile:
-                                r['camera_active'] = camera_manager.is_user_active(profile.user_id)
+                            uid = u_map.get(r['student_id'])
+                            r['camera_active'] = camera_manager.is_user_active(uid) if uid else False
+                            
                         payload = json.dumps({'students': analysis['per_student'],
                                               'summary': analysis['class_summary'],
                                               'is_screen_sharing': screen_manager.is_sharing})

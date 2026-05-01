@@ -350,9 +350,9 @@ es.onmessage = (e) => {
       const toggleBtn = document.getElementById('viewToggleBtn');
       if (d.is_screen_sharing) {
           toggleBtn.style.display = 'block';
-      } else if (!isScreenView) {
+      } else {
           toggleBtn.style.display = 'none';
-          toggleMainView(false);
+          if (isScreenView) toggleMainView(false); // Force back to camera
       }
   }
 };
@@ -609,25 +609,29 @@ async function toggleScreenShare() {
 
         const video = document.createElement('video');
         video.srcObject = screenStream;
-        video.play();
-
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-
-        const captureFrame = async () => {
-            if (!screenStream) return;
-            canvas.width = 640;
-            canvas.height = (video.videoHeight / video.videoWidth) * canvas.width || 360;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-            fetch('/api/upload_screen', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({image: dataUrl})
-            }).catch(() => {});
-            if (screenStream) setTimeout(captureFrame, 200);
+        video.onloadedmetadata = () => {
+            video.play();
+            const captureFrame = async () => {
+                if (!screenStream) return;
+                try {
+                    const w = video.videoWidth || 640;
+                    const h = video.videoHeight || 480;
+                    canvas.width = 640;
+                    canvas.height = Math.round((h / w) * 640) || 480;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+                    fetch('/api/upload_screen', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({image: dataUrl})
+                    }).catch(() => {});
+                } catch (e) { console.error("Screen capture error:", e); }
+                if (screenStream) setTimeout(captureFrame, 500); // 2 FPS is enough for screen
+            };
+            captureFrame();
         };
-        captureFrame();
         screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
     } catch (err) {
         console.error(err);
@@ -653,26 +657,28 @@ function stopScreenShare() {
 }
 
 let isScreenView = false;
-function toggleMainView(forceScreen) {
+function toggleMainView(toScreen) {
     const camImg = document.getElementById('teacher-cam-img');
     const scrImg = document.getElementById('screen-img');
     const label = document.getElementById('feed-label');
     const btn = document.getElementById('viewToggleBtn');
 
-    if (forceScreen !== undefined) isScreenView = !forceScreen;
+    if (toScreen === undefined) {
+        isScreenView = !isScreenView;
+    } else {
+        isScreenView = toScreen;
+    }
 
-    if (!isScreenView) {
+    if (isScreenView) {
         camImg.style.display = 'none';
         scrImg.style.display = 'block';
         label.textContent = "TEACHER'S SHARED SCREEN";
         if(btn) btn.textContent = "Switch to Camera 👤";
-        isScreenView = true;
     } else {
         camImg.style.display = 'block';
         scrImg.style.display = 'none';
         label.textContent = "TEACHER'S LIVE BROADCAST";
         if(btn) btn.textContent = "Switch to Screen 🖥️";
-        isScreenView = false;
     }
 }
 

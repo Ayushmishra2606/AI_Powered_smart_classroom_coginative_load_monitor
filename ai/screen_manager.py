@@ -22,7 +22,7 @@ class ScreenManager:
         with self.lock:
             self.latest_frame = frame_bytes
             self.last_update = time.time()
-            self.is_sharing = True
+            self.is_sharing = (frame_bytes is not None)
 
     def get_latest(self):
         with self.lock:
