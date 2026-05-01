@@ -300,6 +300,8 @@ setInterval(()=>{
 
 // --- SSE Handling ---
 let es = null;
+const processedSignalIds = new Set();
+
 function initSSE() {
   if (es) es.close();
   const sseUrl = IS_TEACHER ? `/classroom/${SESSION_ID}/teacher-stream` : `/classroom/${SESSION_ID}/stream`;
@@ -353,14 +355,18 @@ function initSSE() {
     // Common: Signals (Chat + Nudge + WebRTC)
     if (d.signals && d.signals.length > 0) {
         d.signals.forEach(s => {
+            // Deduplication: Only process if we haven't seen this signal (by id or timestamp)
+            const sigKey = s.id || (s.sender_id + '-' + s.timestamp);
+            if (processedSignalIds.has(sigKey)) return;
+            processedSignalIds.add(sigKey);
+
             if (s.type === 'nudge' && !IS_TEACHER) {
                 showNudge();
             } else if (s.type === 'chat') {
                 if (s.sender_id !== USER_ID) {
-                    appendChat(s.sender, s.message, false);
+                    appendChat(s.sender || "User", s.message, false);
                 }
             } else if (s.type === 'rtc-signal') {
-                // Only handle if targeted to us or if we are the teacher (hub)
                 if (s.target_id === USER_ID || (IS_TEACHER && !s.target_id)) {
                     handleRTCSignal(s);
                 }
