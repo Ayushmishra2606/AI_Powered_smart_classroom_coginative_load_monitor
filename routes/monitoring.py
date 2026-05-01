@@ -152,7 +152,10 @@ def video_feed():
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
             time.sleep(0.15)  # ~6 FPS for personal monitor
 
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={'Cache-Control': 'no-cache, no-store, must-revalidate',
+                             'Pragma': 'no-cache',
+                             'X-Accel-Buffering': 'no'})
 
 
 @monitoring_bp.route('/api/teacher_feed')
@@ -171,7 +174,10 @@ def teacher_feed():
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
             time.sleep(0.1)  # ~10 FPS for teacher broadcast
 
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={'Cache-Control': 'no-cache, no-store, must-revalidate',
+                             'Pragma': 'no-cache',
+                             'X-Accel-Buffering': 'no'})
 
 
 # ── Screen Share ──────────────────────────────────────────────────────────────
@@ -218,7 +224,10 @@ def screen_feed():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + placeholder + b'\r\n')
                 time.sleep(1.0)
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={'Cache-Control': 'no-cache, no-store, must-revalidate',
+                             'Pragma': 'no-cache',
+                             'X-Accel-Buffering': 'no'})
 
 
 # ── SSE Monitoring Stream ─────────────────────────────────────────────────────
@@ -265,4 +274,6 @@ def stream():
                 time.sleep(2)
 
     return Response(generate(), mimetype='text/event-stream',
-                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+                    headers={'Cache-Control': 'no-cache, no-store, must-revalidate',
+                             'Pragma': 'no-cache',
+                             'X-Accel-Buffering': 'no'})

@@ -65,9 +65,10 @@
       <!-- Main Feed: Camera -->
       <img src="/api/teacher_feed" style="width:100%;height:100%;object-fit:cover;" id="teacher-cam-img" alt="Teacher Broadcast Screen"
            onload="document.getElementById('cam-loading').style.display='none'"
-           onerror="this.style.display='none'; document.getElementById('teacher-feed-error').style.display='flex';"/>
+           onerror="this.src='/api/teacher_feed?t=' + new Date().getTime();"/>
       <!-- Main Feed: Screen (Hidden by default) -->
-      <img src="/api/screen_feed" style="width:100%;height:100%;object-fit:cover;display:none;" id="screen-img" alt="Teacher Shared Screen"/>
+      <img src="/api/screen_feed" style="width:100%;height:100%;object-fit:cover;display:none;" id="screen-img" alt="Teacher Shared Screen"
+           onerror="this.src='/api/screen_feed?t=' + new Date().getTime();"/>
       
       <div class="cam-overlay" id="cam-loading">
         <div class="cam-icon" style="animation: pulse 2s infinite;">📡</div>
@@ -297,84 +298,96 @@ setInterval(()=>{
   if(document.getElementById('dur-label')) document.getElementById('dur-label').textContent = Math.floor(secs/60)+' min';
 }, 1000);
 
-// SSE Selection
-const sseUrl = IS_TEACHER ? `/classroom/${SESSION_ID}/teacher-stream` : `/classroom/${SESSION_ID}/stream`;
-const es = new EventSource(sseUrl);
+// --- SSE Handling ---
+let es = null;
+function initSSE() {
+  if (es) es.close();
+  const sseUrl = IS_TEACHER ? `/classroom/${SESSION_ID}/teacher-stream` : `/classroom/${SESSION_ID}/stream`;
+  es = new EventSource(sseUrl);
+  
+  es.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.error) return;
 
-es.onmessage = (e) => {
-  const d = JSON.parse(e.data);
-  if (d.error) return;
+    if (!IS_TEACHER) {
+      // --- STUDENT VIEW LOGIC ---
+      const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+      const setW = (id,v)=>{ const el=document.getElementById(id); if(el) el.style.width=v+'%'; };
 
-  if (!IS_TEACHER) {
-    // --- STUDENT VIEW LOGIC ---
-    const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
-    const setW = (id,v)=>{ const el=document.getElementById(id); if(el) el.style.width=v+'%'; };
+      set('att-score', d.attention_score+'%');
+      set('cog-score', d.cognitive_load+'%');
+      setW('att-bar', d.attention_score);
+      setW('cog-bar', d.cognitive_load);
 
-    set('att-score', d.attention_score+'%');
-    set('cog-score', d.cognitive_load+'%');
-    setW('att-bar', d.attention_score);
-    setW('cog-bar', d.cognitive_load);
+      const statusBadge = document.querySelector('.badge-attentive');
+      if (statusBadge) {
+          if (d.is_present) {
+              statusBadge.textContent = '✅ Present';
+              statusBadge.className = 'badge badge-attentive';
+          } else {
+              statusBadge.textContent = '⚠️ Away';
+              statusBadge.className = 'badge badge-danger';
+          }
+      }
 
-    const statusBadge = document.querySelector('.badge-attentive');
-    if (statusBadge) {
-        if (d.is_present) {
-            statusBadge.textContent = '✅ Present';
-            statusBadge.className = 'badge badge-attentive';
+      document.getElementById('emotion-icon').textContent = EMOTION_EMOJI[d.emotion]||'😐';
+      set('emotion-text', d.emotion);
+      const poseBadge = document.getElementById('pose-badge');
+      if(poseBadge) poseBadge.textContent = POSE_LABELS[d.head_pose]||d.head_pose;
+      set('blink-val', d.blink_rate);
+
+      attVals.push(d.attention_score); cogVals.push(d.cognitive_load);
+      const avgA = (attVals.reduce((a,b)=>a+b,0)/attVals.length).toFixed(1);
+      const avgC = (cogVals.reduce((a,b)=>a+b,0)/cogVals.length).toFixed(1);
+      set('avg-att', avgA+'%');
+      set('avg-cog', avgC+'%');
+
+      if (d.class_summary) {
+          updateClassPulse(d.class_summary);
+      }
+    } else {
+      // --- TEACHER VIEW LOGIC ---
+      updateTeacherDashboard(d);
+    }
+
+    // Common: Signals (Chat + Nudge + WebRTC)
+    if (d.signals && d.signals.length > 0) {
+        d.signals.forEach(s => {
+            if (s.type === 'nudge' && !IS_TEACHER) {
+                showNudge();
+            } else if (s.type === 'chat') {
+                if (s.sender_id !== USER_ID) {
+                    appendChat(s.sender, s.message, false);
+                }
+            } else if (s.type === 'rtc-signal') {
+                // Only handle if targeted to us or if we are the teacher (hub)
+                if (s.target_id === USER_ID || (IS_TEACHER && !s.target_id)) {
+                    handleRTCSignal(s);
+                }
+            }
+        });
+    }
+
+    // Screen Share Detection (For Students)
+    if (!IS_TEACHER) {
+        const toggleBtn = document.getElementById('viewToggleBtn');
+        if (d.is_screen_sharing) {
+            toggleBtn.style.display = 'block';
         } else {
-            statusBadge.textContent = '⚠️ Away';
-            statusBadge.className = 'badge badge-danger';
+            toggleBtn.style.display = 'none';
+            if (isScreenView) toggleMainView(false); // Force back to camera
         }
     }
+  };
 
-    document.getElementById('emotion-icon').textContent = EMOTION_EMOJI[d.emotion]||'😐';
-    set('emotion-text', d.emotion);
-    const poseBadge = document.getElementById('pose-badge');
-    if(poseBadge) poseBadge.textContent = POSE_LABELS[d.head_pose]||d.head_pose;
-    set('blink-val', d.blink_rate);
+  es.onerror = () => {
+    console.warn("Monitoring stream lost. Reconnecting in 3s...");
+    es.close();
+    setTimeout(initSSE, 3000);
+  };
+}
 
-    attVals.push(d.attention_score); cogVals.push(d.cognitive_load);
-    const avgA = (attVals.reduce((a,b)=>a+b,0)/attVals.length).toFixed(1);
-    const avgC = (cogVals.reduce((a,b)=>a+b,0)/cogVals.length).toFixed(1);
-    set('avg-att', avgA+'%');
-    set('avg-cog', avgC+'%');
-
-    if (d.class_summary) {
-        updateClassPulse(d.class_summary);
-    }
-  } else {
-    // --- TEACHER VIEW LOGIC ---
-    updateTeacherDashboard(d);
-  }
-
-  // Common: Signals (Chat + Nudge + WebRTC)
-  if (d.signals && d.signals.length > 0) {
-      d.signals.forEach(s => {
-          if (s.type === 'nudge' && !IS_TEACHER) {
-              showNudge();
-          } else if (s.type === 'chat') {
-              if (s.sender_id !== USER_ID) {
-                  appendChat(s.sender, s.message, false);
-              }
-          } else if (s.type === 'rtc-signal') {
-              // Only handle if targeted to us or if we are the teacher (hub)
-              if (s.target_id === USER_ID || (IS_TEACHER && !s.target_id)) {
-                  handleRTCSignal(s);
-              }
-          }
-      });
-  }
-
-  // Screen Share Detection (For Students)
-  if (!IS_TEACHER) {
-      const toggleBtn = document.getElementById('viewToggleBtn');
-      if (d.is_screen_sharing) {
-          toggleBtn.style.display = 'block';
-      } else {
-          toggleBtn.style.display = 'none';
-          if (isScreenView) toggleMainView(false); // Force back to camera
-      }
-  }
-};
+initSSE();
 
 function updateClassPulse(summary) {
     const engVal = document.getElementById('class-eng-val');
