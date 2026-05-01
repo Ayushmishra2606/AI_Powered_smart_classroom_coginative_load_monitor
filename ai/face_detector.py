@@ -15,7 +15,9 @@ try:
         mp_drawing = mp.solutions.drawing_utils
         mp_drawing_styles = mp.solutions.drawing_styles
         HAS_MEDIAPIPE = True
-except (ImportError, AttributeError):
+except Exception as e:
+    # Print the actual error for debugging on Render
+    print(f"[DEBUG] MediaPipe import failed: {e}")
     pass
 
 class FaceDetector:

@@ -54,7 +54,12 @@ class FaceRecognizer:
                 with open(MAPPING_PATH) as f:
                     raw = json.load(f)
                 # mapping file stores {str_label: student_id}
-                self._id_to_student_id = {int(k): int(v) for k, v in raw.items()}
+                self._id_to_student_id = {}
+                for k, v in raw.items():
+                    try:
+                        self._id_to_student_id[int(k)] = int(v)
+                    except (ValueError, TypeError):
+                        print(f"[WARNING] Skipping invalid mapping entry: {k} -> {v}")
                 print(f"[OK] Face recognizer loaded -- {len(self._id_to_student_id)} students trained.")
             except Exception as e:
                 print(f"[WARNING] Could not load face recognizer: {e}")
