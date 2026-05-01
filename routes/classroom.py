@@ -10,9 +10,7 @@ from ai.analyzer import simulate_student
 from datetime import datetime
 import json, time, random
 
-# Simple in-memory storage for live signaling (Chat/Nudges)
-# Format: { session_id: [ {'type': 'nudge', 'student_id': 1, 'message': '...'}, ... ] }
-LIVE_SIGNALS = {}
+from models.signal import ClassroomSignal
 
 classroom_bp = Blueprint('classroom', __name__, url_prefix='/classroom')
 
@@ -165,17 +163,12 @@ def stream(session_id):
                     summary = analyze_class([student_id], {student_id: user_id})['class_summary']
                     data['class_summary'] = summary
 
-                    # Live signals (nudges / chat)
-                    signals = LIVE_SIGNALS.get(session_id, [])
-                    my_signals = [s for s in signals if s.get('student_id') == student_id or s.get('type') == 'chat']
-                    if my_signals:
-                        data['signals'] = my_signals
-
+                    # Get signals from DB (last 20)
+                    signals_objs = ClassroomSignal.query.filter_by(session_id=session_id)\
+                                   .order_by(ClassroomSignal.id.desc()).limit(20).all()
+                    data['signals'] = [s.to_dict() for s in reversed(signals_objs)]
+                    
                     yield f"data: {json.dumps(data)}\n\n"
-
-                    # Consume delivered signals
-                    if session_id in LIVE_SIGNALS:
-                        LIVE_SIGNALS[session_id] = [s for s in LIVE_SIGNALS[session_id] if s not in my_signals]
 
                 except Exception as e:
                     yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -208,7 +201,10 @@ def teacher_stream(session_id):
                         for r in analysis['per_student']:
                             r['name'] = names.get(r['student_id'], 'Student')
 
-                        signals = LIVE_SIGNALS.get(session_id, [])
+                        # Get signals from DB (last 20 for this session)
+                        signals_objs = ClassroomSignal.query.filter_by(session_id=session_id)\
+                                       .order_by(ClassroomSignal.id.desc()).limit(20).all()
+                        signals = [s.to_dict() for s in reversed(signals_objs)]
 
                         payload = json.dumps({'students': analysis['per_student'],
                                               'summary': analysis['class_summary'],
@@ -265,23 +261,22 @@ def send_signal(session_id):
     if not msg and signal_type != 'rtc-signal':
         return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
 
-    if session_id not in LIVE_SIGNALS:
-        LIVE_SIGNALS[session_id] = []
-
-    signal = {
-        'type': signal_type,
-        'message': msg,
-        'student_id': int(sid) if sid is not None else None,
-        'target_id': payload.get('target_id'), # New: for routing RTC signals
-        'sender_id': current_user.id,          # New: for identifying sender in RTC
-        'sender': current_user.name,
-        'timestamp': time.time()
-    }
-    LIVE_SIGNALS[session_id].append(signal)
-
-    # Keep queue short
-    if len(LIVE_SIGNALS[session_id]) > 50:
-        LIVE_SIGNALS[session_id].pop(0)
+    # Save signal to DB
+    new_signal = ClassroomSignal(
+        session_id=session_id,
+        sender_id=current_user.id,
+        sender_name=current_user.name or current_user.email.split('@')[0],
+        signal_type=signal_type,
+        message=msg,
+        target_id=payload.get('target_id')
+    )
+    
+    try:
+        db.session.add(new_signal)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
     return jsonify({'success': True})
 @classroom_bp.route('/<int:session_id>/rtc-offer', methods=['POST'])
