@@ -7,11 +7,11 @@ Werkzeug==3.0.1
 
 # ── Production WSGI Server ────────────────────────────────────────────────────
 gunicorn==21.2.0
-gevent==24.2.1
+gevent>=24.10.0
 whitenoise==6.6.0
 
 # ── Database ──────────────────────────────────────────────────────────────────
-psycopg2-binary==2.9.9
+psycopg2-binary>=2.9.10
 
 # ── AI / Computer Vision ─────────────────────────────────────────────────────
 # Headless variant: no GUI/display dependencies — required for Linux servers
