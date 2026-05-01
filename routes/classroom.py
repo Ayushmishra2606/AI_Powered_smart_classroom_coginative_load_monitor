@@ -284,3 +284,27 @@ def send_signal(session_id):
         LIVE_SIGNALS[session_id].pop(0)
 
     return jsonify({'success': True})
+@classroom_bp.route('/<int:session_id>/rtc-offer', methods=['POST'])
+@login_required
+def rtc_offer(session_id):
+    """Handle WebRTC offer from Browser -> Server using aiortc."""
+    from ai.rtc_manager import rtc_manager
+    import asyncio
+    
+    data = request.json
+    sdp = data.get('sdp')
+    type = data.get('type')
+    is_teacher = current_user.role in ('teacher', 'admin')
+
+    # Run the async handler in the manager's loop
+    future = asyncio.run_coroutine_threadsafe(
+        rtc_manager.handle_offer(session_id, sdp, type, is_teacher),
+        rtc_manager.loop
+    )
+    
+    try:
+        # Wait for result (timeout 10s)
+        answer = future.result(timeout=10)
+        return jsonify(answer)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

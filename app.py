@@ -49,7 +49,6 @@ def create_app():
     from routes.student    import student_bp
     from routes.classroom  import classroom_bp
     from routes.face_attendance import face_att_bp
-    from routes.rtc import rtc_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -61,7 +60,6 @@ def create_app():
     app.register_blueprint(student_bp)
     app.register_blueprint(classroom_bp)
     app.register_blueprint(face_att_bp)
-    app.register_blueprint(rtc_bp)
 
     # ── Root redirect ────────────────────────────────────────────────────────
     @app.route('/')

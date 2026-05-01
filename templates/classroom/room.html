@@ -261,10 +261,11 @@ const USER_ID = {{ current_user.id }};
 const TEACHER_USER_ID = {{ entry.teacher_id if entry else 0 }};
 const MY_NAME = "{{ current_user.name }}";
 
-// --- WebRTC Audio State ---
-let localAudioStream = null;
-let rtcPeers = {}; // userId -> RTCPeerConnection
 const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+
+// --- WebRTC Audio State (Server-Mediated) ---
+let localAudioStream = null;
+let rtcPC = null; // Single connection to Server
 const EMOTION_EMOJI = { neutral:'😐', happy:'😊', confused:'😕', bored:'😴', stressed:'😰', distracted:'🤔' };
 const STATE_CLASS   = { attentive:'badge-attentive', distracted:'badge-distracted', sleeping:'badge-sleeping', absent:'badge-danger' };
 const POSE_LABELS    = { forward:'⬆️ Forward', left:'⬅️ Left', right:'➡️ Right', down:'⬇️ Down' };
@@ -787,10 +788,7 @@ function showNudge() {
     }
 }
 
-// --- WebRTC Server-Side Audio ---
-let localAudioStream = null;
-let rtcPC = null; // Single connection to the server
-const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+// --- WebRTC Implementation ---
 
 async function toggleMic() {
     const btn = document.getElementById('micBtn');
@@ -798,94 +796,76 @@ async function toggleMic() {
     const icon = document.getElementById('mic-icon');
 
     if (rtcPC) {
-        stopVoice();
+        if (localAudioStream) localAudioStream.getTracks().forEach(t => t.stop());
+        localAudioStream = null;
+        rtcPC.close();
+        rtcPC = null;
+        text.textContent = "Start Mic";
+        icon.textContent = "🎤";
+        btn.style.background = "none";
+        document.getElementById('muteBtn').style.display = 'none';
         return;
     }
 
     try {
-        localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        text.textContent = "Mic: ON";
-        icon.textContent = "🎙️";
-        btn.style.background = "rgba(16, 185, 129, 0.2)";
-        document.getElementById('muteBtn').style.display = 'block';
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Browser does not support media devices.");
+        }
+        
+        try {
+            localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            text.textContent = "Mic: ON";
+            icon.textContent = "🎙️";
+            btn.style.background = "rgba(16, 185, 129, 0.2)";
+            document.getElementById('muteBtn').style.display = 'block';
+        } catch(e) {
+            console.warn("Mic access denied, continuing as listener:", e);
+            text.textContent = "Listening...";
+            icon.textContent = "👂";
+            btn.style.background = "rgba(6, 182, 212, 0.1)";
+        }
+
+        initiateServerRTC();
     } catch (err) {
-        console.warn("Mic access denied, continuing as listener only:", err);
-        text.textContent = "Listening...";
-        icon.textContent = "👂";
-        btn.style.background = "rgba(6, 182, 212, 0.1)";
-        document.getElementById('muteBtn').style.display = 'none';
-        localAudioStream = null;
+        showToast ? showToast("WebRTC initialization failed.", 'error') : alert(err.message);
     }
-
-    startVoice();
 }
 
-function stopVoice() {
-    const btn = document.getElementById('micBtn');
-    const text = document.getElementById('mic-text');
-    const icon = document.getElementById('mic-icon');
-
-    if (rtcPC) {
-        rtcPC.close();
-        rtcPC = null;
-    }
-    if (localAudioStream) {
-        localAudioStream.getTracks().forEach(t => t.stop());
-        localAudioStream = null;
-    }
-    
-    text.textContent = "Start Mic";
-    icon.textContent = "🎤";
-    btn.style.background = "none";
-    document.getElementById('muteBtn').style.display = 'none';
-}
-
-async function startVoice() {
+async function initiateServerRTC() {
     rtcPC = new RTCPeerConnection(ICE_CONFIG);
 
-    // If we have a local stream, add it to the PC (only for teacher or talking student)
-    if (localAudioStream) {
-        localAudioStream.getTracks().forEach(track => {
-            rtcPC.addTrack(track, localAudioStream);
-        });
-    }
-
-    // When the server sends a track (the teacher's audio)
     rtcPC.ontrack = (event) => {
-        console.log("Received remote audio track from server");
-        const remoteAudio = document.createElement('audio');
-        remoteAudio.srcObject = event.streams[0];
-        remoteAudio.autoplay = true;
-        remoteAudio.playsinline = true;
-        // Hidden audio element
-        document.body.appendChild(remoteAudio);
+        console.log("Received remote track from server");
+        const audio = document.createElement('audio');
+        audio.srcObject = event.streams[0];
+        audio.autoplay = true;
+        audio.playsInline = true;
+        document.body.appendChild(audio);
     };
 
-    // Negotiation
+    if (localAudioStream) {
+        localAudioStream.getTracks().forEach(track => rtcPC.addTrack(track, localAudioStream));
+    } else {
+        rtcPC.addTransceiver('audio', {direction: 'recvonly'});
+    }
+
     const offer = await rtcPC.createOffer();
     await rtcPC.setLocalDescription(offer);
 
-    // Send offer to our new Server-Side RTC endpoint
-    try {
-        const response = await fetch('/rtc/offer', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                sdp: rtcPC.localDescription.sdp,
-                type: rtcPC.localDescription.type,
-                session_id: SESSION_ID,
-                is_teacher: IS_TEACHER
-            })
-        });
-        const answer = await response.json();
-        if (answer.error) throw new Error(answer.error);
+    const response = await fetch(`/classroom/${SESSION_ID}/rtc-offer`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            sdp: rtcPC.localDescription.sdp,
+            type: rtcPC.localDescription.type
+        })
+    });
 
+    const answer = await response.json();
+    if (answer.sdp) {
         await rtcPC.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log("WebRTC Server-Side Connection Established");
-    } catch (err) {
-        console.error("RTC Server Error:", err);
-        showToast ? showToast("Voice server unavailable", "warning") : null;
-        stopVoice();
+    } else {
+        console.error("Server RTC Error:", answer.error);
     }
 }
 
@@ -893,9 +873,7 @@ let isMuted = false;
 function toggleMute() {
     if (!localAudioStream) return;
     isMuted = !isMuted;
-    localAudioStream.getAudioTracks().forEach(track => {
-        track.enabled = !isMuted;
-    });
+    localAudioStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
     
     const icon = document.getElementById('mute-icon');
     const btn = document.getElementById('muteBtn');
@@ -908,12 +886,8 @@ function toggleMute() {
     }
 }
 
-// No more P2P signal handling for voice needed!
 function handleRTCSignal(s) {
-    const data = JSON.parse(s.message);
-    if (data.type === 'nudge' && !IS_TEACHER) {
-        showNudge();
-    }
+    // Legacy: handleRTCSignal is no longer needed for P2P voice
 }
 
 function leaveClassroom() {
