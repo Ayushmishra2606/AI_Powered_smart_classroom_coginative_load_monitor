@@ -125,8 +125,17 @@ def analyze_class(student_ids, user_id_map: dict | None = None):
                 m['student_id'] = sid
                 results.append(m)
                 continue
-        # Fall back to simulation for students without an active browser camera
-        results.append(simulate_student(sid))
+        
+        # If the student is NOT active on camera, return a 'zeroed' or absent state 
+        # instead of full simulation, unless explicitly requested (e.g. for demo).
+        # We'll use a 'waiting' state if we know they are in the room.
+        results.append({
+            'student_id': sid,
+            'attention_score': 0, 'cognitive_load': 0,
+            'attention_state': 'absent', 'cognitive_state': 'low',
+            'emotion': 'neutral', 'blink_rate': 0, 'head_pose': 'unknown',
+            'is_present': False, 'timestamp': datetime.utcnow().isoformat()
+        })
 
     if not results:
         return {'per_student': [], 'class_summary': {}}

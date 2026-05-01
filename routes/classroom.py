@@ -7,6 +7,7 @@ from models.timetable import ClassSession, TimetableEntry
 from models.attendance import Attendance
 from models.focus import FocusSession
 from ai.analyzer import simulate_student
+from datetime import datetime
 import json, time, random
 
 # Simple in-memory storage for live signaling (Chat/Nudges)
@@ -18,28 +19,53 @@ classroom_bp = Blueprint('classroom', __name__, url_prefix='/classroom')
 @classroom_bp.route('/join/<code>', methods=['GET', 'POST'])
 def join_public(code):
     """Handle public join links for Instant Classes."""
-    entry = TimetableEntry.query.filter_by(join_code=code, is_public=True).first_or_404()
-    session = ClassSession.query.filter_by(timetable_id=entry.id, status='active').first()
+    from datetime import date
+    entry = TimetableEntry.query.filter_by(join_code=code).first_or_404()
     
-    if not session:
-        flash("This class has already ended.", "error")
+    # If not public, only logged-in users can join
+    if not entry.is_public and not current_user.is_authenticated:
+        flash("This is a private class. Please log in as a student to join.", "error")
         return redirect(url_for('auth.login'))
         
+    class_session = ClassSession.query.filter_by(timetable_id=entry.id, status='active').first()
+
+    if not class_session:
+        flash("This class has already ended or is not active yet.", "error")
+        return redirect(url_for('student.dashboard' if current_user.is_authenticated and current_user.is_student() else 'auth.login'))
+
     if current_user.is_authenticated:
         if current_user.is_student():
-            return redirect(url_for('classroom.room', session_id=session.id))
+            profile = StudentProfile.query.filter_by(user_id=current_user.id).first()
+            # Mark attendance (idempotent)
+            if profile:
+                existing = Attendance.query.filter_by(
+                    student_id=profile.id, class_session_id=class_session.id).first()
+                if not existing:
+                    att = Attendance(
+                        student_id=profile.id,
+                        class_session_id=class_session.id,
+                        status='present',
+                        face_verified=False,
+                        joined_at=datetime.utcnow()
+                    )
+                    db.session.add(att)
+                    try:
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+            return redirect(url_for('classroom.room', session_id=class_session.id))
         else:
-            flash("Teachers/Admins cannot join as students.", "warning")
-            return redirect(url_for('dashboard.index'))
-            
-    # Guest user logic
+            # Teacher/admin enters their own classroom
+            return redirect(url_for('classroom.room', session_id=class_session.id))
+
+    # Unauthenticated guest
     if request.method == 'POST':
-        guest_name = request.form.get('guest_name')
+        guest_name = request.form.get('guest_name', '').strip()
         if guest_name:
             flask_session['guest_name'] = guest_name
-            flask_session['guest_room_id'] = session.id
-            return redirect(url_for('classroom.guest_room', session_id=session.id))
-            
+            flask_session['guest_room_id'] = class_session.id
+            return redirect(url_for('classroom.guest_room', session_id=class_session.id))
+
     return render_template('classroom/guest_join.html', entry=entry)
 
 @classroom_bp.route('/guest/<int:session_id>')
@@ -73,16 +99,34 @@ def guest_room(session_id):
 @classroom_bp.route('/<int:session_id>')
 @login_required
 def room(session_id):
-    session = ClassSession.query.get_or_404(session_id)
-    entry   = session.timetable_entry
-    # Count students in this session
-    student_count = Attendance.query.filter_by(class_session_id=session_id).count()
+    class_session = ClassSession.query.get_or_404(session_id)
+    entry   = class_session.timetable_entry
     profile = StudentProfile.query.filter_by(user_id=current_user.id).first()
+
+    # Auto-mark attendance when a student enters the room (idempotent)
+    if current_user.is_student() and profile:
+        existing = Attendance.query.filter_by(
+            student_id=profile.id, class_session_id=session_id).first()
+        if not existing:
+            att = Attendance(
+                student_id=profile.id,
+                class_session_id=session_id,
+                status='present',
+                face_verified=False,
+                joined_at=datetime.utcnow()
+            )
+            db.session.add(att)
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+    student_count = Attendance.query.filter_by(class_session_id=session_id).count()
     return render_template('classroom/room.html',
-                           session=session, entry=entry,
+                           session=class_session, entry=entry,
                            student_count=student_count,
                            profile=profile,
-                           is_teacher=current_user.is_teacher())
+                           is_teacher=current_user.is_teacher() or current_user.is_admin())
 
 
 @classroom_bp.route('/<int:session_id>/stream')

@@ -85,6 +85,21 @@ def upload_student_frame():
         return jsonify({'success': False, 'error': f'Decode error: {e}'}), 400
 
     metrics = camera_manager.ingest_frame(current_user.id, jpeg_bytes)
+    
+    # Auto-verify attendance if face is detected
+    if metrics.get('is_present'):
+        profile = StudentProfile.query.filter_by(user_id=current_user.id).first()
+        if profile:
+            # Find the student's active attendance for this session
+            # We don't have session_id in the upload request, so we look for the latest active attendance
+            att = Attendance.query.filter_by(student_id=profile.id).order_by(Attendance.joined_at.desc()).first()
+            if att and not att.face_verified:
+                att.face_verified = True
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+
     return jsonify({'success': True, 'metrics': metrics})
 
 

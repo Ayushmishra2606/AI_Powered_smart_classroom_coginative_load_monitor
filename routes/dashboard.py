@@ -122,6 +122,7 @@ def schedule_custom_class():
     end_time    = request.form.get('end_time')
     student_ids = request.form.getlist('student_ids')  # list of student profile IDs
     start_now   = request.form.get('start_now') == '1'  # optional checkbox
+    is_public   = request.form.get('is_public') == '1'
 
     if not subject_id or not room_id or start_time is None or end_time is None:
         flash('All fields are required to schedule a class.', 'error')
@@ -134,7 +135,9 @@ def schedule_custom_class():
         day_of_week=day_of_week if day_of_week is not None else datetime.now().weekday(),
         start_time=start_time,
         end_time=end_time,
-        class_type='custom'
+        class_type='custom',
+        is_public=is_public,
+        join_code=generate_join_code()
     )
     db.session.add(entry)
     db.session.flush()  # get entry.id

@@ -166,7 +166,9 @@ def _get_today_schedule(profile):
         query = query.filter(
             (TimetableEntry.semester == profile.semester) |
             (TimetableEntry.department_id == profile.department_id) |
-            (TimetableEntry.id.in_(enrolled_ids))
+            (TimetableEntry.id.in_(enrolled_ids)) |
+            (TimetableEntry.is_public == True) |
+            (TimetableEntry.class_type == 'instant')
         )
     return query.order_by(TimetableEntry.start_time).all()
 
