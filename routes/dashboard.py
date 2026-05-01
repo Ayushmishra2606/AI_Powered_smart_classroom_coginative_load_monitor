@@ -173,36 +173,37 @@ def live_stream():
                         student_ids = [s.id for s in students]
                         analysis = analyze_class(student_ids)
 
-                        # Save sessions to DB
-                        for result in analysis['per_student']:
-                            sess = MonitoringSession(
-                                student_id=result['student_id'],
-                                attention_score=result['attention_score'],
-                                cognitive_load=result['cognitive_load'],
-                                attention_state=result['attention_state'],
-                                cognitive_state=result['cognitive_state'],
-                                emotion=result['emotion'],
-                                blink_rate=result['blink_rate'],
-                                head_pose=result['head_pose']
-                            )
-                            db.session.add(sess)
-
                         summary = analysis['class_summary']
+                        # Add a 5-minute cooldown for alerts to avoid 'irritating' duplicates
+                        now_ts = time.time()
+                        
                         if summary.get('avg_attention', 100) < 45:
-                            db.session.add(Alert(
-                                alert_type='attention_drop',
-                                message=f"Class attention at {summary['avg_attention']}% — below threshold",
-                                severity='warning'
-                            ))
+                            # Use a unique key for this session and alert type
+                            cooldown_key = f"att_drop_{current_user.id}"
+                            last_sent = getattr(app, '_last_alert_ts', {}).get(cooldown_key, 0)
+                            if now_ts - last_sent > 300: # 5 min cooldown
+                                db.session.add(Alert(
+                                    alert_type='attention_drop',
+                                    message=f"Class attention at {summary['avg_attention']}% — consider a quick interaction.",
+                                    severity='warning'
+                                ))
+                                # Update app-level cache (simple way for SSE)
+                                if not hasattr(app, '_last_alert_ts'): app._last_alert_ts = {}
+                                app._last_alert_ts[cooldown_key] = now_ts
 
                         distracted = summary.get('state_counts', {}).get('distracted', 0)
                         sleeping  = summary.get('state_counts', {}).get('sleeping', 0)
                         if (distracted + sleeping) >= 3:
-                            db.session.add(Alert(
-                                alert_type='distraction',
-                                message=f"{distracted + sleeping} students off-task",
-                                severity='critical'
-                            ))
+                            cooldown_key = f"distract_{current_user.id}"
+                            last_sent = getattr(app, '_last_alert_ts', {}).get(cooldown_key, 0)
+                            if now_ts - last_sent > 300:
+                                db.session.add(Alert(
+                                    alert_type='distraction',
+                                    message=f"Multiple students ({distracted + sleeping}) seem off-task.",
+                                    severity='critical'
+                                ))
+                                if not hasattr(app, '_last_alert_ts'): app._last_alert_ts = {}
+                                app._last_alert_ts[cooldown_key] = now_ts
 
                         db.session.commit()
 

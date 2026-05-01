@@ -117,10 +117,13 @@ function showToast(message, type = 'info') {
 }
 
 function showDesktopNotification(message, type) {
+  // Only show desktop alerts for CRITICAL severity to avoid irritation
+  if (type !== 'critical') return;
+
   if ("Notification" in window && Notification.permission === "granted") {
-    new Notification("AI Smart Classroom", {
+    new Notification("AI Smart Classroom Alert", {
       body: message,
-      icon: "/static/img/logo.png" // Fallback if icon exists
+      icon: "/static/img/logo.png"
     });
   }
 }

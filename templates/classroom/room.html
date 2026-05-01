@@ -710,12 +710,10 @@ function appendChat(sender, msg, isSelf) {
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 
-    // Real notification for new chat messages (if not self)
-    if (!isSelf && "Notification" in window && Notification.permission === "granted") {
-        new Notification(`${sender} in Classroom`, {
-            body: msg,
-            icon: "/static/img/chat.png"
-        });
+    // Remove desktop notification for chat as it is irritating during class. 
+    // We keep the chat message appearing in the box and optional toast.
+    if (!isSelf) {
+        showToast ? showToast(`New message from ${sender}`, 'info') : null;
     }
 }
 
