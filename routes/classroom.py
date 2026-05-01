@@ -254,7 +254,7 @@ def send_signal(session_id):
     sid         = payload.get('student_id')  # target student profile id (nudge) or sender id (chat)
 
     # Validate signal type
-    ALLOWED_TYPES = ('chat', 'nudge')
+    ALLOWED_TYPES = ('chat', 'nudge', 'rtc-signal')
     if signal_type not in ALLOWED_TYPES:
         return jsonify({'success': False, 'error': 'Invalid signal type'}), 400
 
@@ -262,7 +262,7 @@ def send_signal(session_id):
     if signal_type == 'nudge' and current_user.role not in ('teacher', 'admin'):
         return jsonify({'success': False, 'error': 'Unauthorized: only teachers can send nudges'}), 403
 
-    if not msg:
+    if not msg and signal_type != 'rtc-signal':
         return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
 
     if session_id not in LIVE_SIGNALS:
@@ -272,6 +272,8 @@ def send_signal(session_id):
         'type': signal_type,
         'message': msg,
         'student_id': int(sid) if sid is not None else None,
+        'target_id': payload.get('target_id'), # New: for routing RTC signals
+        'sender_id': current_user.id,          # New: for identifying sender in RTC
         'sender': current_user.name,
         'timestamp': time.time()
     }

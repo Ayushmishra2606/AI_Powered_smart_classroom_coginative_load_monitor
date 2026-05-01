@@ -36,11 +36,15 @@
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
+    <button id="micBtn" onclick="toggleMic()" class="btn btn-ghost btn-sm" style="border-color:var(--accent-cyan); color:var(--accent-cyan); display:flex; align-items:center; gap:6px;">
+        <span id="mic-icon">🎤</span> <span id="mic-text">Start Mic</span>
+    </button>
     <div class="live-badge"><div class="status-dot"></div> AI ACTIVE</div>
     <div style="font-size:13px;color:var(--text-secondary);" id="clock2"></div>
     <button onclick="leaveClassroom()" class="btn btn-danger btn-sm">Leave ↩</button>
   </div>
 </div>
+<div id="audio-container" style="display:none;"></div>
 
 <div class="room-layout">
   <!-- Camera Panel -->
@@ -246,8 +250,14 @@
 <script>
 const SESSION_ID = {{ session.id }};
 const IS_TEACHER = {{ 'true' if is_teacher else 'false' }};
-const STUDENT_ID = {{ profile.id if profile else current_user.id }};
+const STUDENT_ID = {{ profile.id if profile else 0 }};
+const USER_ID = {{ current_user.id }};
 const MY_NAME = "{{ current_user.name }}";
+
+// --- WebRTC Audio State ---
+let localAudioStream = null;
+let rtcPeers = {}; // userId -> RTCPeerConnection
+const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 const EMOTION_EMOJI = { neutral:'😐', happy:'😊', confused:'😕', bored:'😴', stressed:'😰', distracted:'🤔' };
 const STATE_CLASS   = { attentive:'badge-attentive', distracted:'badge-distracted', sleeping:'badge-sleeping', absent:'badge-danger' };
 const POSE_LABELS    = { forward:'⬆️ Forward', left:'⬅️ Left', right:'➡️ Right', down:'⬇️ Down' };
@@ -330,16 +340,19 @@ es.onmessage = (e) => {
     updateTeacherDashboard(d);
   }
 
-  // Common: Signals (Chat + Nudge)
+  // Common: Signals (Chat + Nudge + WebRTC)
   if (d.signals && d.signals.length > 0) {
       d.signals.forEach(s => {
           if (s.type === 'nudge' && !IS_TEACHER) {
               showNudge();
           } else if (s.type === 'chat') {
-              // Don't echo back the user's own messages (already shown optimistically)
-              const myName = document.body.dataset.userName || '';
-              if (s.sender !== myName) {
+              if (s.sender_id !== USER_ID) {
                   appendChat(s.sender, s.message, false);
+              }
+          } else if (s.type === 'rtc-signal') {
+              // Only handle if targeted to us or if we are the teacher (hub)
+              if (s.target_id === USER_ID || (IS_TEACHER && !s.target_id)) {
+                  handleRTCSignal(s);
               }
           }
       });
@@ -748,6 +761,119 @@ function showNudge() {
             body: "Your teacher is asking you to focus on the class.",
             requireInteraction: true
         });
+    }
+}
+
+// --- WebRTC Implementation ---
+
+async function toggleMic() {
+    const btn = document.getElementById('micBtn');
+    const text = document.getElementById('mic-text');
+    const icon = document.getElementById('mic-icon');
+
+    if (localAudioStream) {
+        // Stop Mic
+        localAudioStream.getTracks().forEach(t => t.stop());
+        localAudioStream = null;
+        text.textContent = "Start Mic";
+        icon.textContent = "🎤";
+        btn.style.background = "none";
+        return;
+    }
+
+    try {
+        localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        text.textContent = "Mic: ON";
+        icon.textContent = "🎙️";
+        btn.style.background = "rgba(16, 185, 129, 0.2)";
+
+        // If teacher, broadcast "I am live" to everyone
+        if (IS_TEACHER) {
+            broadcastRTCSignal({ type: 'teacher-ready' });
+        } else {
+            // If student, initiate connection to teacher
+            initiateRTC(null); // null target = teacher
+        }
+    } catch (err) {
+        console.error("Mic access denied:", err);
+        alert("Microphone access is required for real-time communication.");
+    }
+}
+
+function broadcastRTCSignal(data) {
+    fetch(`/classroom/${SESSION_ID}/signal`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            type: 'rtc-signal',
+            message: JSON.stringify(data),
+            target_id: data.target_id || null
+        })
+    }).catch(e => console.error("RTC Signal Error:", e));
+}
+
+function initiateRTC(targetId) {
+    const pc = createPeerConnection(targetId);
+    pc.createOffer().then(offer => {
+        pc.setLocalDescription(offer);
+        broadcastRTCSignal({ type: 'offer', sdp: offer, target_id: targetId });
+    });
+}
+
+function createPeerConnection(remoteUserId) {
+    if (rtcPeers[remoteUserId]) return rtcPeers[remoteUserId];
+
+    const pc = new RTCPeerConnection(ICE_CONFIG);
+    rtcPeers[remoteUserId] = pc;
+
+    if (localAudioStream) {
+        localAudioStream.getTracks().forEach(track => pc.addTrack(track, localAudioStream));
+    }
+
+    pc.onicecandidate = event => {
+        if (event.candidate) {
+            broadcastRTCSignal({ type: 'candidate', candidate: event.candidate, target_id: remoteUserId });
+        }
+    };
+
+    pc.ontrack = event => {
+        const container = document.getElementById('audio-container');
+        let audio = document.getElementById(`audio-${remoteUserId}`);
+        if (!audio) {
+            audio = document.createElement('audio');
+            audio.id = `audio-${remoteUserId}`;
+            audio.autoplay = true;
+            container.appendChild(audio);
+        }
+        audio.srcObject = event.streams[0];
+    };
+
+    return pc;
+}
+
+function handleRTCSignal(s) {
+    const data = JSON.parse(s.message);
+    const remoteId = s.sender_id;
+
+    if (data.type === 'teacher-ready' && !IS_TEACHER) {
+        // Teacher is now live, students should connect
+        if (localAudioStream) initiateRTC(remoteId);
+    } 
+    else if (data.type === 'offer') {
+        const pc = createPeerConnection(remoteId);
+        pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        pc.createAnswer().then(answer => {
+            pc.setLocalDescription(answer);
+            broadcastRTCSignal({ type: 'answer', sdp: answer, target_id: remoteId });
+        });
+    } 
+    else if (data.type === 'answer') {
+        const pc = rtcPeers[remoteId];
+        if (pc) pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    } 
+    else if (data.type === 'candidate') {
+        const pc = rtcPeers[remoteId];
+        if (pc) pc.addIceCandidate(new RTCIceCandidate(data.candidate));
     }
 }
 
