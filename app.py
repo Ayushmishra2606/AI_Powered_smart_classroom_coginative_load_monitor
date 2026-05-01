@@ -247,8 +247,8 @@ def _seed_demo_data():
                                   avatar_color=color)
         db.session.add(profile)
 
-    # ── Welcome alert ─────────────────────────────────────────────────────────
-    db.session.add(Alert(alert_type='system', message='University AI Classroom system initialized. Welcome!', severity='info'))
+    # ── Initial system state ──────────────────────────────────────────────────
+    # (No dummy alerts added by default)
 
     db.session.commit()
     print("[OK] Demo data seeded - 1 admin, 2 teachers, 8 students, 3 depts, 6 subjects, 11 timetable entries")

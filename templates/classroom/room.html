@@ -690,6 +690,14 @@ function appendChat(sender, msg, isSelf) {
     div.innerHTML = `<strong style="color:${color};">${sender}:</strong> <span style="color:var(--text-primary);">${msg}</span>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
+
+    // Real notification for new chat messages (if not self)
+    if (!isSelf && "Notification" in window && Notification.permission === "granted") {
+        new Notification(`${sender} in Classroom`, {
+            body: msg,
+            icon: "/static/img/chat.png"
+        });
+    }
 }
 
 function sendChatMessage() {
@@ -727,6 +735,13 @@ function showNudge() {
     if(el) {
         el.style.display = 'flex';
         setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+    // Real notification for the nudge
+    if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("⚠️ Attention Nudge", {
+            body: "Your teacher is asking you to focus on the class.",
+            requireInteraction: true
+        });
     }
 }
 
